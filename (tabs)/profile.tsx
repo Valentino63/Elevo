@@ -12,17 +12,16 @@ export default function ProfileScreen() {
   const [username, setUsername] = useState('');
   const [level, setLevel] = useState(1);
   const [xp, setXp] = useState(0);
-  const loadData = async () => {
-  const savedUsername = await AsyncStorage.getItem('elevo_username');
-  const savedLevel = await AsyncStorage.getItem('elevo_level');
-  const savedXp = await AsyncStorage.getItem('elevo_xp');
-  setUsername(savedUsername || 'JohnDoe');
-  setLevel(savedLevel ? Number(savedLevel) : 1);
-  setXp(savedXp ? Number(savedXp) : 0);
-  };
-
   useFocusEffect(
     useCallback(() => {
+      const loadData = async () => {
+        const savedUsername = await AsyncStorage.getItem('elevo_username');
+        const savedLevel = await AsyncStorage.getItem('elevo_level');
+        const savedXp = await AsyncStorage.getItem('elevo_xp');
+        setUsername(savedUsername || 'JohnDoe');
+        setLevel(savedLevel ? Number(savedLevel) : 1);
+        setXp(savedXp ? Number(savedXp) : 0);
+      };
       loadData();
     }, [])
   );

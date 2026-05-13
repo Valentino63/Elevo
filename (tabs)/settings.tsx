@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 
 
 export default function SettingsScreen() {
@@ -11,21 +12,23 @@ export default function SettingsScreen() {
   const [level, setLevel] = useState(1);
   
 
-  useEffect(() => {
-    const loadData = async () => {
-      const savedUsername = await AsyncStorage.getItem('elevo_username');
-      const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
-      const savedSubArchetype = await AsyncStorage.getItem('elevo_subarchetype');
-      const savedXp = await AsyncStorage.getItem('elevo_xp');
-      const savedLevel = await AsyncStorage.getItem('elevo_level');
-      if (savedUsername) setUsername(savedUsername);
-      if (savedArchetype) setArchetype(savedArchetype);
-      if (savedSubArchetype) setSubArchetype(savedSubArchetype);
-      if (savedXp) setXp(Number(savedXp));
-      if (savedLevel) setLevel(Number(savedLevel));
-    };
-    loadData();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      const loadData = async () => {
+        const savedUsername = await AsyncStorage.getItem('elevo_username');
+        const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
+        const savedSubArchetype = await AsyncStorage.getItem('elevo_subarchetype');
+        const savedXp = await AsyncStorage.getItem('elevo_xp');
+        const savedLevel = await AsyncStorage.getItem('elevo_level');
+        if (savedUsername) setUsername(savedUsername);
+        if (savedArchetype) setArchetype(savedArchetype);
+        if (savedSubArchetype) setSubArchetype(savedSubArchetype);
+        if (savedXp) setXp(Number(savedXp));
+        if (savedLevel) setLevel(Number(savedLevel));
+      };
+      loadData();
+    }, [])
+  );
 
   return(
     <View style = {styles.container}>

@@ -49,21 +49,13 @@ export default function ArchetypesScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setSaved(false);
-      setSubSaved(false);
-      setSelectedArchetype(null);
-      setSelectedSubArchetype(null);
       const loadSaved = async () => {
         const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
         const savedSub = await AsyncStorage.getItem('elevo_subarchetype');
-        if (savedArchetype) {
-          setSelectedArchetype(savedArchetype);
-          setSaved(true);
-        }
-        if (savedSub) {
-          setSelectedSubArchetype(savedSub);
-          setSubSaved(true);
-        }
+        setSelectedArchetype(savedArchetype);
+        setSelectedSubArchetype(savedSub);
+        setSaved(!!savedArchetype);
+        setSubSaved(!!savedSub);
       };
       loadSaved();
     }, [])
