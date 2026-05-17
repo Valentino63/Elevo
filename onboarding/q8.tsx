@@ -20,6 +20,7 @@ export default function Q8() {
     const handleFinish = async () => {
         await AsyncStorage.setItem('elevo_q8', answer.trim());
         await AsyncStorage.setItem('elevo_onboarding_done', 'true');
+        console.log()
         router.replace('/(tabs)');
     };
 

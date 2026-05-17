@@ -10,15 +10,15 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
 
-  useEffect(() => {
-    const check = async () => {
-      const done = await AsyncStorage.getItem('elevo_onboarding_done');
-      if (!done) {
-        router.replace('/onboarding/welcome');
-      }
-    };
-    check();
-  }, []);
+useEffect(() => {
+  const check = async () => {
+    const done = await AsyncStorage.getItem('elevo_onboarding_done');
+    if (!done) {
+      router.replace('/onboarding/welcome');
+    }
+  };
+  check();
+}, []);
 
   return (
     <>

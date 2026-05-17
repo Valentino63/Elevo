@@ -386,6 +386,10 @@ const activityCategory: Record<string, string> = Object.fromEntries(
   categories.flatMap(cat => cat.activities.map(a => [a.name, cat.title]))
 );
 
+const activityFreq: Record<string, Activity['freq']> = Object.fromEntries(
+  categories.flatMap(cat => cat.activities.map(a => [a.name, a.freq]))
+);
+
 function getMultiplier(
   activityName: string,
   archetype: string | null,
@@ -507,7 +511,9 @@ export default function HomeScreen() {
     if (activityName === 'Misogi') {
       let lvl = level ?? 1;
       let currentXp = xp ?? 0;
-      currentXp += 5 * getXpForLevel(lvl + 1);
+      for (let i = 0; i < 5; i++) {
+        currentXp += getXpForLevel(lvl + i + 1);
+      }
       while (currentXp >= getXpForLevel(lvl + 1)) {
         currentXp -= getXpForLevel(lvl + 1);
         lvl += 1;
@@ -517,7 +523,7 @@ export default function HomeScreen() {
       return;
     }
     const effectiveLoggedToday = lastLogDate !== today ? [] : loggedToday;
-    const newHabitMultiplier = currentCount < 5 && activityCategory[activityName] !== 'Annual' ? 3 : 1;
+    const newHabitMultiplier = currentCount < 5 && activityFreq[activityName] === 'Daily' ? 3 : 1;
     const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday) * newHabitMultiplier);
     const newXp = (xp ?? 0) + adjustedAmount;
     const threshold = getXpForLevel((level ?? 1) + 1);

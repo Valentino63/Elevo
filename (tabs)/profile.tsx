@@ -8,19 +8,40 @@ import { useCallback } from 'react';
 
 const TITLES = ['Novice', 'Apprentice', 'Warrior'];
 
+function getXpForLevel(level: number) {
+  let baseLevelXp = 500;
+  let growthRate = 0.10;
+  for (let levelNum = 2; levelNum < level; levelNum++) {
+    baseLevelXp = baseLevelXp * (1 + growthRate);
+    growthRate -= 0.0015;
+    growthRate = Math.max(growthRate, 0.005);
+  }
+  return Math.round(baseLevelXp / 5) * 5;
+}
+
 export default function ProfileScreen() {
   const [username, setUsername] = useState('');
   const [level, setLevel] = useState(1);
   const [xp, setXp] = useState(0);
+  const [archetype, setArchetype] = useState('');
+  const [subArchetype, setSubArchetype] = useState('');
+  const [streak, setStreak] = useState(0);
+
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
         const savedUsername = await AsyncStorage.getItem('elevo_username');
         const savedLevel = await AsyncStorage.getItem('elevo_level');
         const savedXp = await AsyncStorage.getItem('elevo_xp');
+        const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
+        const savedSubArchetype = await AsyncStorage.getItem('elevo_subarchetype');
+        const savedStreak = await AsyncStorage.getItem('elevo_streak');
         setUsername(savedUsername || 'JohnDoe');
         setLevel(savedLevel ? Number(savedLevel) : 1);
         setXp(savedXp ? Number(savedXp) : 0);
+        setArchetype(savedArchetype || '');
+        setSubArchetype(savedSubArchetype || '');
+        setStreak(savedStreak ? Number(savedStreak) : 0);
       };
       loadData();
     }, [])
@@ -32,9 +53,13 @@ export default function ProfileScreen() {
         <Text style={styles.avatarText}>{username.charAt(0)}</Text>
       </View>
       <Text style={styles.username}>{username}</Text>
-      <Text style={styles.stat}>Level: {level}</Text>
-      <Text style={styles.stat}>Title: {TITLES[level - 1] || 'Legend'}</Text>
-      <Text style={styles.stat}>XP: {xp}</Text>
+      <Text style={styles.stat}>Archetype: {archetype || 'None'}{subArchetype ? ` · ${subArchetype}` : ''}</Text>
+      <Text style={styles.streak}>🔥 {streak} day streak</Text>
+      <Text style={styles.stat}>Level: {level} · {TITLES[level - 1] || 'Legend'}</Text>
+      <Text style={styles.stat}>XP: {xp} / {getXpForLevel(level + 1)}</Text>
+      <View style={styles.xpBarContainer}>
+        <View style={[styles.xpBar, { width: `${Math.min((xp / getXpForLevel(level + 1)) * 100, 100)}%` }]} />
+      </View>
     </View>
   );
 };
@@ -45,7 +70,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0a0a0a',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 60,
   },
   username: {
     color: '#c9a84c',
@@ -73,5 +99,26 @@ const styles = StyleSheet.create({
     color: '#c9a84c',
     fontSize: 28,
     fontWeight: 'bold',
-},
+  },
+  streak: {
+    color: '#FF6B35',
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    alignSelf: 'stretch',
+    textAlign: 'center',
+  },
+  xpBarContainer: {
+    width: '70%',
+    height: 12,
+    backgroundColor: '#1e1e1e',
+    borderRadius: 6,
+    overflow: 'hidden',
+    marginTop: 8,
+  },
+  xpBar: {
+    height: '100%',
+    backgroundColor: '#c9a84c',
+    borderRadius: 6,
+  },
 });
