@@ -6,11 +6,11 @@ import { useFocusEffect } from 'expo-router';
 const archetypes = [
   { name: 'Healthy Guy', description: 'Weight Loss · Longevity · Energy Optimisation' },
   { name: 'Gymbro / Athlete', description: 'Bulk · Cut · Maintain / Recomp · Sport-Specific' },
-  { name: 'Entrepreneur', description: 'Early Stage Builder · Operator / Scaler' },
+  { name: 'Entrepreneur', description: 'Early Stage Builder · Operator / Scaler · Freelancer' },
   { name: 'Scholar', description: 'Academic · Self-Taught · Reader' },
   { name: 'Creator', description: 'Short Form · Long Form · Writer' },
   { name: 'Monk', description: 'Stoic · Spiritual' },
-  { name: 'Social Guy', description: 'Connector · Public Speaker · Dating' },
+  { name: 'Social Guy', description: 'Connector · Public Speaker · Dating / Charisma' },
   { name: 'Family Man', description: 'Father · Partner · Provider' },
   { name: 'Looksmaxer', description: 'Skin / Grooming · Style · Aesthetic Physique' },
   { name: 'Jack of All Trades', description: 'No sub-archetypes' },

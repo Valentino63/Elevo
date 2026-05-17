@@ -432,6 +432,7 @@ export default function HomeScreen() {
   const [subArchetype, setSubArchetype] = useState<string | null>(null);
   const title = TITLES[(level ?? 1) - 1] || 'Legend';
   const [loggedToday, setLoggedToday] = useState<string[]>([]);
+  const [completions, setCompletions] = useState<Record<string, number>>({});
 
   useFocusEffect(
     useCallback(() => {
@@ -457,6 +458,8 @@ export default function HomeScreen() {
         const savedSubArchetype = await AsyncStorage.getItem('elevo_subarchetype');
         if (savedSubArchetype) setSubArchetype(savedSubArchetype);
         setLoggedToday(savedLastLogDate === today && savedLoggedToday ? JSON.parse(savedLoggedToday) : []);
+        const savedCompletions = await AsyncStorage.getItem('elevo_completions');
+        if (savedCompletions) setCompletions(JSON.parse(savedCompletions));
         setLoaded(true);
       };
       loadData();
@@ -470,7 +473,8 @@ export default function HomeScreen() {
     AsyncStorage.setItem('elevo_streak', String(streak));
     AsyncStorage.setItem('elevo_last_log_date', lastLogDate ?? '');
     AsyncStorage.setItem('elevo_logged_today', JSON.stringify(loggedToday));
-  }, [xp, level, streak, lastLogDate, loggedToday, loaded]);
+    AsyncStorage.setItem('elevo_completions', JSON.stringify(completions));
+  }, [xp, level, streak, lastLogDate, loggedToday, completions, loaded]);
 
   function getXpForLevel(level: number) {
     let baseLevelXp = 500;
@@ -498,6 +502,8 @@ export default function HomeScreen() {
     } else {
       setLoggedToday(prev => [...prev, activityName]);
     }
+    const currentCount = completions[activityName] ?? 0;
+    setCompletions(prev => ({ ...prev, [activityName]: currentCount + 1 }));
     if (activityName === 'Misogi') {
       let lvl = level ?? 1;
       let currentXp = xp ?? 0;
@@ -510,7 +516,9 @@ export default function HomeScreen() {
       setXp(Math.round(currentXp / 5) * 5);
       return;
     }
-    const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, loggedToday));
+    const effectiveLoggedToday = lastLogDate !== today ? [] : loggedToday;
+    const newHabitMultiplier = currentCount < 5 && activityCategory[activityName] !== 'Annual' ? 3 : 1;
+    const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday) * newHabitMultiplier);
     const newXp = (xp ?? 0) + adjustedAmount;
     const threshold = getXpForLevel((level ?? 1) + 1);
     if (newXp >= threshold) {
