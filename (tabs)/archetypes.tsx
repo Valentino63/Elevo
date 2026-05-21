@@ -2,32 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-nati
 import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
-
-const archetypes = [
-  { name: 'Healthy Guy', description: 'Weight Loss · Longevity · Energy Optimisation' },
-  { name: 'Gymbro / Athlete', description: 'Bulk · Cut · Maintain / Recomp · Sport-Specific' },
-  { name: 'Entrepreneur', description: 'Early Stage Builder · Operator / Scaler · Freelancer' },
-  { name: 'Scholar', description: 'Academic · Self-Taught · Reader' },
-  { name: 'Creator', description: 'Short Form · Long Form · Writer' },
-  { name: 'Monk', description: 'Stoic · Spiritual' },
-  { name: 'Social Guy', description: 'Connector · Public Speaker · Dating / Charisma' },
-  { name: 'Family Man', description: 'Father · Partner · Provider' },
-  { name: 'Looksmaxer', description: 'Skin / Grooming · Style · Aesthetic Physique' },
-  { name: 'Jack of All Trades', description: 'No sub-archetypes' },
-];
-
-const subArchetypes: Record<string, string[]> = {
-  'Healthy Guy': ['Weight Loss', 'Longevity', 'Energy Optimisation'],
-  'Gymbro / Athlete': ['Bulk', 'Cut', 'Maintain / Recomp', 'Sport-Specific'],
-  'Entrepreneur': ['Early Stage Builder', 'Operator / Scaler', 'Freelancer'],
-  'Scholar': ['Academic', 'Self-Taught', 'Reader'],
-  'Creator': ['Short Form', 'Long Form', 'Writer'],
-  'Monk': ['Stoic', 'Spiritual'],
-  'Social Guy': ['Connector', 'Public Speaker', 'Dating / Charisma'],
-  'Family Man': ['Father', 'Partner', 'Provider'],
-  'Looksmaxer': ['Skin / Grooming', 'Style', 'Aesthetic Physique'],
-  'Jack of All Trades': [],
-};
+import { archetypes, subArchetypes } from '../utils';
 
 
 
@@ -66,11 +41,22 @@ export default function ArchetypesScreen() {
   return (
     <View style={styles.container}>
       <View style={{ alignItems: 'center', marginBottom: 24 }}>
-        <Text style={styles.title}>LEVEL UP</Text>
+        <Text style={styles.title}>Elevo</Text>
         <Text style={styles.subtitle}>Path chosen</Text>
         <Text style={styles.archetypeLabel}>{selectedArchetype}</Text>
         {selectedSubArchetype && <Text style={styles.archetypeLabel}>{selectedSubArchetype}</Text>}
       </View>
+      <TouchableOpacity
+        style={styles.confirmButton}
+        onPress={async () => {
+          await AsyncStorage.multiRemove(['elevo_archetype', 'elevo_subarchetype']);
+          setSelectedArchetype(null);
+          setSelectedSubArchetype(null);
+          setSaved(false);
+          setSubSaved(false);
+        }}>
+        <Text style={styles.confirmButtonText}>Change path</Text>
+      </TouchableOpacity>
     </View>
   );
   }
@@ -78,7 +64,7 @@ export default function ArchetypesScreen() {
     return (
       <View style={styles.container}>
         <View style={{ alignItems: 'center', marginBottom: 24 }}>
-          <Text style={styles.title}>LEVEL UP</Text>
+          <Text style={styles.title}>Elevo</Text>
           <Text style={styles.subtitle}>Choose your sub-path</Text>
           <Text style={styles.archetypeLabel}>{selectedArchetype}</Text>
         </View>
@@ -109,7 +95,7 @@ export default function ArchetypesScreen() {
   return (
     <View style={styles.container}>
       <View style={{ alignItems: 'center', marginBottom: 24 }}>
-        <Text style={styles.title}>LEVEL UP</Text>
+        <Text style={styles.title}>Elevo</Text>
         <Text style={styles.subtitle}>
           {saved ? 'Path chosen' : 'Choose your path'}
         </Text>

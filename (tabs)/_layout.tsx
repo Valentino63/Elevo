@@ -22,6 +22,20 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="workout"
+        options={{
+          title: 'Workout',
+          tabBarIcon: ({ color }) => <Ionicons name="barbell-outline" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="records"
+        options={{
+          title: 'Records',
+          tabBarIcon: ({ color }) => <Ionicons name="medal" size={24} color={color} />,
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Profile',
@@ -41,21 +55,7 @@ export default function TabLayout() {
           title: 'Settings',
           tabBarIcon: ({ color }) => <Ionicons name="settings-sharp" size={24} color={color} />,
         }}
-      />
-      <Tabs.Screen
-        name="records"
-        options={{
-          title: 'Records',
-          tabBarIcon: ({ color }) => <Ionicons name="medal" size={24} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="workout"
-        options={{
-          title: 'Workout',
-          tabBarIcon: ({ color }) => <Ionicons name="barbell-outline" size={24} color={color} />,
-        }}
-      />
+      /> 
     </Tabs>
   );
 }

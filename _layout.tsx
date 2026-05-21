@@ -6,19 +6,23 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect } from 'react';
 
+export const unstable_settings = {
+  initialRouteName: '(tabs)',
+};
+
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
 
-useEffect(() => {
-  const check = async () => {
-    const done = await AsyncStorage.getItem('elevo_onboarding_done');
-    if (!done) {
-      router.replace('/onboarding/welcome');
-    }
-  };
-  check();
-}, []);
+//  useEffect(() => {
+//   const check = async () => {
+//      const done = await AsyncStorage.getItem('elevo_onboarding_done');
+//      if (!done) {
+//        router.replace('/onboarding/welcome');
+//      }
+//    };
+//    check();
+//  }, []);
 
   return (
     <>

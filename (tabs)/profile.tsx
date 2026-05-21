@@ -1,23 +1,8 @@
 import { StyleSheet, Text, View } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
-
-
-
-const TITLES = ['Novice', 'Apprentice', 'Warrior'];
-
-function getXpForLevel(level: number) {
-  let baseLevelXp = 500;
-  let growthRate = 0.10;
-  for (let levelNum = 2; levelNum < level; levelNum++) {
-    baseLevelXp = baseLevelXp * (1 + growthRate);
-    growthRate -= 0.0015;
-    growthRate = Math.max(growthRate, 0.005);
-  }
-  return Math.round(baseLevelXp / 5) * 5;
-}
+import { getTitle, getXpForLevel } from '../utils';
 
 export default function ProfileScreen() {
   const [username, setUsername] = useState('');
@@ -55,7 +40,7 @@ export default function ProfileScreen() {
       <Text style={styles.username}>{username}</Text>
       <Text style={styles.stat}>Archetype: {archetype || 'None'}{subArchetype ? ` · ${subArchetype}` : ''}</Text>
       <Text style={styles.streak}>🔥 {streak} day streak</Text>
-      <Text style={styles.stat}>Level: {level} · {TITLES[level - 1] || 'Legend'}</Text>
+      <Text style={styles.stat}>Level: {level} · {getTitle(level)}</Text>
       <Text style={styles.stat}>XP: {xp} / {getXpForLevel(level + 1)}</Text>
       <View style={styles.xpBarContainer}>
         <View style={[styles.xpBar, { width: `${Math.min((xp / getXpForLevel(level + 1)) * 100, 100)}%` }]} />

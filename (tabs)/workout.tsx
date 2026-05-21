@@ -67,6 +67,7 @@ export default function WorkoutScreen() {
     const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
     const [activeExercises, setActiveExercises] = useState<ActiveExercise[]>([]);
     const [bestMap, setBestMap] = useState<Record<string, number>>({});
+    const [lastSessionData, setLastSessionData] = useState<Record<string, HistorySet[]>>({});
 
     useFocusEffect(
         useCallback(() => {
@@ -161,6 +162,12 @@ export default function WorkoutScreen() {
             bm[ex.name] = bestVolume(history, ex.name);
         }
         setBestMap(bm);
+        const lastSession = [...history].reverse().find(s => s.templateName === template.name);
+        const lsd: Record<string, HistorySet[]> = {};
+        if (lastSession) {
+            for (const ex of lastSession.exercises) lsd[ex.name] = ex.sets;
+        }
+        setLastSessionData(lsd);
         setActiveExercises(template.exercises.map(ex => ({
             name: ex.name,
             type: ex.type ?? 'reps',
@@ -370,31 +377,36 @@ export default function WorkoutScreen() {
                                     </View>
                                     {ex.sets.map((s, si) => {
                                         const pr = s.done && isPR(ex.name, s.weight, s.reps);
+                                        const lastSet = lastSessionData[ex.name]?.[si];
+                                        const lastLabel = lastSet ? `Last: ${lastSet.weight}kg × ${lastSet.reps}` : '—';
                                         return (
-                                            <View key={si} style={[styles.setRow, s.done && styles.setRowDone]}>
-                                                <Text style={styles.setNum}>{si + 1}</Text>
-                                                <TextInput
-                                                    style={[styles.setInput, { flex: 1 }]}
-                                                    value={s.weight}
-                                                    onChangeText={v => updateSetField(ei, si, 'weight', v)}
-                                                    keyboardType="numeric"
-                                                    editable={!s.done}
-                                                />
-                                                <TextInput
-                                                    style={[styles.setInput, { flex: 1 }]}
-                                                    value={s.reps}
-                                                    onChangeText={v => updateSetField(ei, si, 'reps', v)}
-                                                    keyboardType="number-pad"
-                                                    editable={!s.done}
-                                                />
-                                                <View style={styles.setActions}>
-                                                    {pr && <Text style={styles.prBadge}>PR</Text>}
-                                                    <TouchableOpacity
-                                                        style={[styles.doneBtn, s.done && styles.doneBtnActive]}
-                                                        onPress={() => markSetDone(ei, si)}>
-                                                        <Text style={[styles.doneBtnText, s.done && styles.doneBtnTextActive]}>✓</Text>
-                                                    </TouchableOpacity>
+                                            <View key={si}>
+                                                <View style={[styles.setRow, s.done && styles.setRowDone]}>
+                                                    <Text style={styles.setNum}>{si + 1}</Text>
+                                                    <TextInput
+                                                        style={[styles.setInput, { flex: 1 }]}
+                                                        value={s.weight}
+                                                        onChangeText={v => updateSetField(ei, si, 'weight', v)}
+                                                        keyboardType="numeric"
+                                                        editable={!s.done}
+                                                    />
+                                                    <TextInput
+                                                        style={[styles.setInput, { flex: 1 }]}
+                                                        value={s.reps}
+                                                        onChangeText={v => updateSetField(ei, si, 'reps', v)}
+                                                        keyboardType="number-pad"
+                                                        editable={!s.done}
+                                                    />
+                                                    <View style={styles.setActions}>
+                                                        {pr && <Text style={styles.prBadge}>PR</Text>}
+                                                        <TouchableOpacity
+                                                            style={[styles.doneBtn, s.done && styles.doneBtnActive]}
+                                                            onPress={() => markSetDone(ei, si)}>
+                                                            <Text style={[styles.doneBtnText, s.done && styles.doneBtnTextActive]}>✓</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
                                                 </View>
+                                                <Text style={styles.lastSetText}>{lastLabel}</Text>
                                             </View>
                                         );
                                     })}
@@ -406,25 +418,32 @@ export default function WorkoutScreen() {
                                         <Text style={[styles.setHeaderCell, { flex: 1 }]}>DURATION (sec)</Text>
                                         <View style={{ width: 72 }} />
                                     </View>
-                                    {ex.sets.map((s, si) => (
-                                        <View key={si} style={[styles.setRow, s.done && styles.setRowDone]}>
-                                            <Text style={styles.setNum}>{si + 1}</Text>
-                                            <TextInput
-                                                style={[styles.setInput, { flex: 1 }]}
-                                                value={s.duration}
-                                                onChangeText={v => updateSetField(ei, si, 'duration', v)}
-                                                keyboardType="number-pad"
-                                                editable={!s.done}
-                                            />
-                                            <View style={styles.setActions}>
-                                                <TouchableOpacity
-                                                    style={[styles.doneBtn, s.done && styles.doneBtnActive]}
-                                                    onPress={() => markSetDone(ei, si)}>
-                                                    <Text style={[styles.doneBtnText, s.done && styles.doneBtnTextActive]}>✓</Text>
-                                                </TouchableOpacity>
+                                    {ex.sets.map((s, si) => {
+                                        const lastSet = lastSessionData[ex.name]?.[si];
+                                        const lastLabel = lastSet ? `Last: ${lastSet.duration}s` : '—';
+                                        return (
+                                            <View key={si}>
+                                                <View style={[styles.setRow, s.done && styles.setRowDone]}>
+                                                    <Text style={styles.setNum}>{si + 1}</Text>
+                                                    <TextInput
+                                                        style={[styles.setInput, { flex: 1 }]}
+                                                        value={s.duration}
+                                                        onChangeText={v => updateSetField(ei, si, 'duration', v)}
+                                                        keyboardType="number-pad"
+                                                        editable={!s.done}
+                                                    />
+                                                    <View style={styles.setActions}>
+                                                        <TouchableOpacity
+                                                            style={[styles.doneBtn, s.done && styles.doneBtnActive]}
+                                                            onPress={() => markSetDone(ei, si)}>
+                                                            <Text style={[styles.doneBtnText, s.done && styles.doneBtnTextActive]}>✓</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                                <Text style={styles.lastSetText}>{lastLabel}</Text>
                                             </View>
-                                        </View>
-                                    ))}
+                                        );
+                                    })}
                                 </>
                             )}
                         </View>
@@ -443,10 +462,13 @@ export default function WorkoutScreen() {
     return (
         <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={styles.title}>Workout</Text>
-                <TouchableOpacity style={styles.newTemplateBtn} onPress={() => openBuilder()}>
-                    <Text style={styles.newTemplateBtnText}>+ New</Text>
-                </TouchableOpacity>
+                <View style={{ flex: 1 }} />
+                <Text style={[styles.title, { flex: 0 }]}>Workout</Text>
+                <View style={{ flex: 1, alignItems: 'flex-end' }}>
+                    <TouchableOpacity style={styles.newTemplateBtn} onPress={() => openBuilder()}>
+                        <Text style={styles.newTemplateBtnText}>+ New</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
             <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}>
                 {templates.length === 0 && (
@@ -779,6 +801,13 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         paddingHorizontal: 4,
         paddingVertical: 2,
+    },
+    lastSetText: {
+        color: '#5a5650',
+        fontSize: 11,
+        marginLeft: 36,
+        marginTop: -2,
+        marginBottom: 4,
     },
     finishBar: {
         position: 'absolute',

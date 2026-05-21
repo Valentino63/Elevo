@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 
 
 export default function SettingsScreen() {
@@ -10,7 +10,8 @@ export default function SettingsScreen() {
   const [subArchetype, setSubArchetype] = useState('');
   const [xp, setXp] = useState(0);
   const [level, setLevel] = useState(1);
-  
+  const router = useRouter();
+
 
   useFocusEffect(
     useCallback(() => {
@@ -52,11 +53,11 @@ export default function SettingsScreen() {
             <Text style = {styles.archetype}>Archetype</Text>
             <View style = {styles.separator}></View>
             <Text style = {styles.changeArchetype}>Archetype: {archetype || 'Not set'}{subArchetype ? ` · ${subArchetype}` : ''}</Text>
-            <TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/archetypes')}>
                 <Text style = {styles.changeArchetype}>Change archetype</Text>
             </TouchableOpacity>
             <View style = {styles.separator}></View>
-            <Text style = {styles.apperance}>Apperance</Text>
+            <Text style = {styles.apperance}>Appearance</Text>
             <View style = {styles.separator}></View>
             <Text style = {styles.app}>App</Text>
             <View style = {styles.separator}></View>
@@ -64,15 +65,46 @@ export default function SettingsScreen() {
             <View style = {styles.separator}></View>
             <Text style = {styles.dangerZone}>Danger Zone</Text>
             <View style = {styles.separator}></View>
-            <TouchableOpacity onPress={async () => {
-                await AsyncStorage.clear();
-                setXp(0);
-                setLevel(1);
-                setUsername('');
-                setArchetype('');
-                setSubArchetype('')
-            }}>
-            <Text style={styles.resetButton}>RESET</Text>
+            <TouchableOpacity onPress={() => Alert.alert(
+                'Reset Progress',
+                'Clears XP, level, streak, and activity logs. Keeps your username, archetype, and onboarding.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Reset Progress', style: 'destructive', onPress: async () => {
+                            const PROGRESS_KEYS = [
+                                'elevo_xp', 'elevo_level', 'elevo_streak',
+                                'elevo_last_log_date', 'elevo_logged_today',
+                                'elevo_completions', 'elevo_new_task_starts',
+                                'elevo_workout_history', 'elevo_records',
+                            ];
+                            await AsyncStorage.multiRemove(PROGRESS_KEYS);
+                            setXp(0);
+                            setLevel(1);
+                        },
+                    },
+                ]
+            )}>
+                <Text style={styles.resetButton}>Reset Progress</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => Alert.alert(
+                'Full Reset',
+                'Deletes everything including your profile and onboarding data. Onboarding will restart next launch.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Full Reset', style: 'destructive', onPress: async () => {
+                            await AsyncStorage.clear();
+                            setXp(0);
+                            setLevel(1);
+                            setUsername('');
+                            setArchetype('');
+                            setSubArchetype('');
+                        },
+                    },
+                ]
+            )}>
+                <Text style={styles.resetButton}>Full Reset</Text>
             </TouchableOpacity>
         </ScrollView>
     </View>
