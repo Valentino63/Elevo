@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getTitle, getXpForLevel,
-  categories, activityArchetypes, activityFreq,
+  categories, activityArchetypes, activityFreq, activityXp,
   getMultiplier,
 } from '../utils';
 
@@ -20,6 +20,7 @@ export default function HomeScreen() {
   const [loggedToday, setLoggedToday] = useState<string[]>([]);
   const [completions, setCompletions] = useState<Record<string, number>>({});
   const [newTaskStarts, setNewTaskStarts] = useState<Record<string, string>>({});
+  const [showAll, setShowAll] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -130,6 +131,10 @@ export default function HomeScreen() {
       : category.activities,
   })).filter(category => category.activities.length > 0);
 
+  const xpToday = loggedToday.reduce((sum, name) => sum + (activityXp[name] ?? 0), 0);
+  const allFilteredActivities = filteredCategories.flatMap(c => c.activities);
+  const suggestedActivities = allFilteredActivities.slice(0, 8);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -147,12 +152,40 @@ export default function HomeScreen() {
       </View>
       <Text style={styles.streakCounterText}>🔥 {streak ?? 0} day streak</Text>
       <View style={styles.horizontalLine} />
-      <Text style={styles.activityTitleText}>Log Activity</Text>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-        {filteredCategories.map((category) => (
-          <View key={category.title}>
-            <Text style={styles.categoryHeader}>{category.title.toUpperCase()}</Text>
-            {category.activities.map((activity) => {
+      <ScrollView style={styles.todayRegion} showsVerticalScrollIndicator={false}>
+        {loggedToday.length > 0 ? (
+          <View style={styles.todaySection}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={[styles.todaySectionHeader, { marginBottom: 0 }]}>
+                {loggedToday.length} action{loggedToday.length !== 1 ? 's' : ''} in. Keep going.
+              </Text>
+              <Text style={styles.todaySectionHeader}>+{xpToday} XP</Text>
+            </View>
+            {loggedToday.map(name => (
+              <View key={name} style={styles.todayItem}>
+                <Text style={styles.todayCheck}>✓</Text>
+                <Text style={styles.todayItemName} numberOfLines={1}>{name}</Text>
+                <Text style={styles.todayItemXp}>+{activityXp[name] ?? 0}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              {(streak ?? 0) > 0
+                ? `🔥 ${streak} day streak — keep it alive`
+                : 'Start with one thing today.'}
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+      <View style={{ marginTop: 20 }} />
+      <View style={styles.horizontalLine} />
+      <View style={{ marginBottom: 20 }} />
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
+        {!showAll ? (
+          <>
+            {suggestedActivities.map((activity) => {
               const done = loggedToday.includes(activity.name);
               return (
                 <TouchableOpacity
@@ -161,12 +194,45 @@ export default function HomeScreen() {
                   style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}
                   onPress={() => handleLogActivity(activity.xp, activity.name)}>
                   <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
-                  <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>{activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}</Text>
+                  <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
+                    {activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
-          </View>
-        ))}
+            {allFilteredActivities.length > 8 && (
+              <TouchableOpacity style={styles.seeAllBtn} onPress={() => setShowAll(true)}>
+                <Text style={styles.seeAllBtnText}>See all tasks</Text>
+              </TouchableOpacity>
+            )}
+          </>
+        ) : (
+          <>
+            {filteredCategories.map((category) => (
+              <View key={category.title}>
+                <Text style={styles.categoryHeader}>{category.title.toUpperCase()}</Text>
+                {category.activities.map((activity) => {
+                  const done = loggedToday.includes(activity.name);
+                  return (
+                    <TouchableOpacity
+                      key={activity.name}
+                      disabled={done}
+                      style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}
+                      onPress={() => handleLogActivity(activity.xp, activity.name)}>
+                      <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
+                      <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
+                        {activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            ))}
+            <TouchableOpacity style={styles.seeAllBtn} onPress={() => setShowAll(false)}>
+              <Text style={styles.seeAllBtnText}>See less</Text>
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </View>
   );
@@ -192,8 +258,8 @@ const styles = StyleSheet.create({
   xpCounter: {
     flexDirection: 'row',
     gap: 12,
-    paddingBottom: 30,
-    paddingTop: 20,
+    paddingBottom: 10,
+    paddingTop: 10,     
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -209,8 +275,8 @@ const styles = StyleSheet.create({
   },
   xpBarContainer: {
     marginHorizontal: 24,
-    marginBottom: 30,
-    height: 12,
+    marginBottom: 10,
+    height: 8,
     backgroundColor: '#1e1e1e',
     borderRadius: 6,
     overflow: 'hidden',
@@ -235,7 +301,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 24,
     marginBottom: 8,
-    paddingVertical: 12,
+    paddingVertical: 18,
     paddingHorizontal: 16,
     backgroundColor: 'transparent',
     borderRadius: 8,
@@ -250,6 +316,7 @@ const styles = StyleSheet.create({
     borderColor: '#2a2a2a',
     borderWidth: 1,
     opacity: 0.4,
+    paddingVertical: 7,
   },
   logButtonTextDone: {
     color: '#5a5650',
@@ -276,14 +343,86 @@ const styles = StyleSheet.create({
   },
   horizontalLine: {
     backgroundColor: '#2a2a2a',
-    height: 2,
-    marginVertical: 12,
+    height: 1,
+    marginVertical: 6,
   },
   streakCounterText: {
     color: '#FF6B35',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     textAlign: 'center',
-    paddingBottom: 10,
+    paddingBottom: 6,
+  },
+  todaySection: {
+    marginHorizontal: 24,
+    marginTop: 8,
+    marginBottom: 4,
+    backgroundColor: '#0f0f0f',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#1e1e1e',
+  },
+  todaySectionHeader: {
+    color: '#c9a84c',
+    fontSize: 13,
+    fontWeight: 'bold',
+    letterSpacing: 0.5,
+  },
+  todayItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    gap: 8,
+  },
+  todayCheck: {
+    color: '#c9a84c',
+    fontSize: 13,
+    fontWeight: 'bold',
+    width: 16,
+  },
+  todayItemName: {
+    color: '#e8e0cc',
+    fontSize: 13,
+    flex: 1,
+  },
+  todayItemXp: {
+    color: '#c9a84c',
+    fontSize: 12,
+  },
+  todayXpTotal: {
+    color: '#c9a84c',
+    fontSize: 13,
+    fontWeight: 'bold',
+    marginTop: 10,
+    textAlign: 'right',
+  },
+  emptyState: {
+    marginHorizontal: 24,
+    marginTop: 16,
+    marginBottom: 8,
+    paddingVertical: 12,
+  },
+  emptyStateText: {
+    color: '#5a5650',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  seeAllBtn: {
+    marginHorizontal: 24,
+    marginTop: 4,
+    marginBottom: 8,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#2a2a2a',
+    borderRadius: 8,
+  },
+  seeAllBtnText: {
+    color: '#5a5650',
+    fontSize: 14,
+  },
+  todayRegion: {
+    maxHeight: 160,
   },
 });

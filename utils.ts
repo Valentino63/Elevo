@@ -403,6 +403,10 @@ export const activityFreq: Record<string, Activity['freq']> = Object.fromEntries
   categories.flatMap(cat => cat.activities.map(a => [a.name, a.freq]))
 );
 
+export const activityXp: Record<string, number> = Object.fromEntries(
+  categories.flatMap(cat => cat.activities.map(a => [a.name, a.xp]))
+);
+
 export function getMultiplier(
   activityName: string,
   archetype: string | null,
