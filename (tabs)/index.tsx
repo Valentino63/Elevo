@@ -1,11 +1,11 @@
-import { StyleSheet, Text, TouchableOpacity, View, ScrollView } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Modal } from 'react-native';
 import { useCallback, useEffect, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getTitle, getXpForLevel,
   categories, activityArchetypes, activityFreq, activityXp,
-  getMultiplier,
+  getMultiplier, activityExplanations
 } from '../utils';
 
 export default function HomeScreen() {
@@ -21,6 +21,8 @@ export default function HomeScreen() {
   const [completions, setCompletions] = useState<Record<string, number>>({});
   const [newTaskStarts, setNewTaskStarts] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState(false);
+  const [explanationModal, setExplanationModal] = useState<string | null>(null);
+  const [lifetimeXp, setLifetimeXp] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -50,6 +52,8 @@ export default function HomeScreen() {
         if (savedCompletions) setCompletions(JSON.parse(savedCompletions));
         const savedNewTaskStarts = await AsyncStorage.getItem('elevo_new_task_starts');
         if (savedNewTaskStarts) setNewTaskStarts(JSON.parse(savedNewTaskStarts));
+        const savedLifetimeXp = await AsyncStorage.getItem('elevo_lifetime_xp');
+        if (savedLifetimeXp) setLifetimeXp(Number(savedLifetimeXp));
         setLoaded(true);
       };
       loadData();
@@ -65,7 +69,8 @@ export default function HomeScreen() {
     AsyncStorage.setItem('elevo_logged_today', JSON.stringify(loggedToday));
     AsyncStorage.setItem('elevo_completions', JSON.stringify(completions));
     AsyncStorage.setItem('elevo_new_task_starts', JSON.stringify(newTaskStarts));
-  }, [xp, level, streak, lastLogDate, loggedToday, completions, newTaskStarts, loaded]);
+    AsyncStorage.setItem('elevo_lifetime_xp', String(lifetimeXp));
+  }, [xp, level, streak, lastLogDate, loggedToday, completions, newTaskStarts, lifetimeXp, loaded]);
 
   function handleLogActivity(amount: number, activityName: string) {
     if (loggedToday.includes(activityName)) return;
@@ -87,7 +92,9 @@ export default function HomeScreen() {
     if (activityName === 'Misogi') {
       let lvl = level ?? 1;
       let currentXp = xp ?? 0;
+      let misogiGained = 0;
       for (let i = 0; i < 5; i++) {
+        misogiGained += getXpForLevel(lvl + i + 1);
         currentXp += getXpForLevel(lvl + i + 1);
       }
       while (currentXp >= getXpForLevel(lvl + 1)) {
@@ -96,6 +103,7 @@ export default function HomeScreen() {
       }
       setLevel(lvl);
       setXp(Math.round(currentXp / 5) * 5);
+      setLifetimeXp(prev => prev + misogiGained);
       return;
     }
     const effectiveLoggedToday = lastLogDate !== today ? [] : loggedToday;
@@ -112,6 +120,7 @@ export default function HomeScreen() {
     const isNewTask = taskStartDate != null && taskStartDate >= thirtyDaysAgo;
     const newHabitMultiplier = isNewTask && currentCount < 5 && activityFreq[activityName] === 'Daily' ? 3 : 1;
     const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday) * newHabitMultiplier);
+    setLifetimeXp(prev => prev + adjustedAmount);
     const newXp = (xp ?? 0) + adjustedAmount;
     const threshold = getXpForLevel((level ?? 1) + 1);
     if (newXp >= threshold) {
@@ -188,16 +197,26 @@ export default function HomeScreen() {
             {suggestedActivities.map((activity) => {
               const done = loggedToday.includes(activity.name);
               return (
-                <TouchableOpacity
+                <View
                   key={activity.name}
-                  disabled={done}
-                  style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}
-                  onPress={() => handleLogActivity(activity.xp, activity.name)}>
-                  <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
-                  <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
-                    {activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}
-                  </Text>
-                </TouchableOpacity>
+                  style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}>
+                  <TouchableOpacity
+                    disabled={done}
+                    style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    onPress={() => handleLogActivity(activity.xp, activity.name)}>
+                    <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
+                    <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
+                      {activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}
+                    </Text>
+                  </TouchableOpacity>
+                  {activityExplanations[activity.name] && (
+                    <TouchableOpacity
+                      onPress={() => setExplanationModal(activity.name)}
+                      style={styles.infoButton}>
+                      <Text style={styles.infoButtonText}>ⓘ</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
               );
             })}
             {allFilteredActivities.length > 8 && (
@@ -214,16 +233,26 @@ export default function HomeScreen() {
                 {category.activities.map((activity) => {
                   const done = loggedToday.includes(activity.name);
                   return (
-                    <TouchableOpacity
+                    <View
                       key={activity.name}
-                      disabled={done}
-                      style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}
-                      onPress={() => handleLogActivity(activity.xp, activity.name)}>
-                      <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
-                      <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
-                        {activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}
-                      </Text>
-                    </TouchableOpacity>
+                      style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}>
+                      <TouchableOpacity
+                        disabled={done}
+                        style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                        onPress={() => handleLogActivity(activity.xp, activity.name)}>
+                        <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
+                        <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
+                          {activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}
+                        </Text>
+                      </TouchableOpacity>
+                      {activityExplanations[activity.name] && (
+                        <TouchableOpacity
+                          onPress={() => setExplanationModal(activity.name)}
+                          style={styles.infoButton}>
+                          <Text style={styles.infoButtonText}>ⓘ</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   );
                 })}
               </View>
@@ -234,6 +263,27 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+      <Modal
+        visible={explanationModal !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setExplanationModal(null)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setExplanationModal(null)}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>{explanationModal}</Text>
+            <View style={styles.modalDivider} />
+            <Text style={styles.modalBody}>
+              {explanationModal ? activityExplanations[explanationModal] : ''}
+            </Text>
+            <TouchableOpacity onPress={() => setExplanationModal(null)} style={styles.modalClose}>
+              <Text style={styles.modalCloseText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -424,5 +474,56 @@ const styles = StyleSheet.create({
   },
   todayRegion: {
     maxHeight: 160,
+  },
+  infoButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  infoButtonText: {
+    color: '#c9a84c',
+    fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalCard: {
+    backgroundColor: '#0f0f0f',
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 1,
+    borderColor: '#c9a84c',
+    width: '100%',
+  },
+  modalTitle: {
+    color: '#c9a84c',
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 12,
+  },
+  modalDivider: {
+    height: 1,
+    backgroundColor: '#1e1e1e',
+    marginBottom: 12,
+  },
+  modalBody: {
+    color: '#e8e0cc',
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  modalClose: {
+    marginTop: 20,
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#c9a84c',
+    borderRadius: 8,
+  },
+  modalCloseText: {
+    color: '#c9a84c',
+    fontSize: 14,
   },
 });

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ScrollView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -11,6 +11,9 @@ export default function ProfileScreen() {
   const [archetype, setArchetype] = useState('');
   const [subArchetype, setSubArchetype] = useState('');
   const [streak, setStreak] = useState(0);
+  const [completions, setCompletions] = useState<Record<string, number>>({});
+  const [joinDate, setJoinDate] = useState('');
+  const [lifetimeXp, setLifetimeXp] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -21,53 +24,117 @@ export default function ProfileScreen() {
         const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
         const savedSubArchetype = await AsyncStorage.getItem('elevo_subarchetype');
         const savedStreak = await AsyncStorage.getItem('elevo_streak');
-        setUsername(savedUsername || 'JohnDoe');
+        const savedCompletions = await AsyncStorage.getItem('elevo_completions');
+        const savedLifetimeXp = await AsyncStorage.getItem('elevo_lifetime_xp');
+
+        // Set join date on first launch
+        let savedJoinDate = await AsyncStorage.getItem('elevo_join_date');
+        if (!savedJoinDate) {
+          savedJoinDate = new Date().toISOString().split('T')[0];
+          await AsyncStorage.setItem('elevo_join_date', savedJoinDate);
+        }
+
+        setUsername(savedUsername || 'Anonymous');
         setLevel(savedLevel ? Number(savedLevel) : 1);
         setXp(savedXp ? Number(savedXp) : 0);
         setArchetype(savedArchetype || '');
         setSubArchetype(savedSubArchetype || '');
         setStreak(savedStreak ? Number(savedStreak) : 0);
+        setCompletions(savedCompletions ? JSON.parse(savedCompletions) : {});
+        setJoinDate(savedJoinDate);
+        setLifetimeXp(savedLifetimeXp ? Number(savedLifetimeXp) : 0);
       };
       loadData();
     }, [])
   );
 
-  return (
-    <View style={styles.container}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{username.charAt(0)}</Text>
-      </View>
-      <Text style={styles.username}>{username}</Text>
-      <Text style={styles.stat}>Archetype: {archetype || 'None'}{subArchetype ? ` · ${subArchetype}` : ''}</Text>
-      <Text style={styles.streak}>🔥 {streak} day streak</Text>
-      <Text style={styles.stat}>Level: {level} · {getTitle(level)}</Text>
-      <Text style={styles.stat}>XP: {xp} / {getXpForLevel(level + 1)}</Text>
-      <View style={styles.xpBarContainer}>
-        <View style={[styles.xpBar, { width: `${Math.min((xp / getXpForLevel(level + 1)) * 100, 100)}%` }]} />
-      </View>
-    </View>
-  );
-};
+  const totalTasksLogged = Object.values(completions).reduce((a, b) => a + b, 0);
+  const mostLoggedTask = Object.entries(completions).sort((a, b) => b[1] - a[1])[0];
+  const xpProgress = Math.min((xp / getXpForLevel(level + 1)) * 100, 100);
 
+  const formatJoinDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  };
+
+  return (
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>{username.charAt(0).toUpperCase()}</Text>
+        </View>
+        <Text style={styles.username}>{username}</Text>
+        {joinDate ? (
+          <Text style={styles.joinDate}>Member since {formatJoinDate(joinDate)}</Text>
+        ) : null}
+      </View>
+
+      {/* Level + XP */}
+      <View style={styles.card}>
+        <View style={styles.levelRow}>
+          <Text style={styles.levelText}>Level {level}</Text>
+          <Text style={styles.titleText}>{getTitle(level)}</Text>
+        </View>
+        <View style={styles.xpBarContainer}>
+          <View style={[styles.xpBar, { width: `${xpProgress}%` }]} />
+        </View>
+        <Text style={styles.xpLabel}>{xp} / {getXpForLevel(level + 1)} XP to next level</Text>
+      </View>
+
+      {/* Streak + Archetype */}
+      <View style={styles.row}>
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.cardLabel}>STREAK</Text>
+          <Text style={styles.cardValueOrange}>🔥 {streak}</Text>
+          <Text style={styles.cardSub}>days</Text>
+        </View>
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.cardLabel}>PATH</Text>
+          <Text style={styles.cardValue}>{archetype || '—'}</Text>
+          {subArchetype ? <Text style={styles.cardSub}>{subArchetype}</Text> : null}
+        </View>
+      </View>
+
+      {/* Stats */}
+      <View style={styles.row}>
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.cardLabel}>TOTAL XP</Text>
+          <Text style={styles.cardValue}>{lifetimeXp.toLocaleString()}</Text>
+          <Text style={styles.cardSub}>lifetime</Text>
+        </View>
+        <View style={[styles.card, styles.halfCard]}>
+          <Text style={styles.cardLabel}>ACTIONS</Text>
+          <Text style={styles.cardValue}>{totalTasksLogged}</Text>
+          <Text style={styles.cardSub}>logged total</Text>
+        </View>
+      </View>
+
+      {/* Most consistent habit */}
+      {mostLoggedTask && (
+        <View style={styles.card}>
+          <Text style={styles.cardLabel}>MOST CONSISTENT HABIT</Text>
+          <Text style={styles.habitName}>{mostLoggedTask[0]}</Text>
+          <Text style={styles.cardSub}>{mostLoggedTask[1]} times logged</Text>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#0a0a0a',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
+  },
+  content: {
     paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 24,
   },
-  username: {
-    color: '#c9a84c',
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 16,
-  },
-  stat: {
-    color: '#e8e0cc',
-    fontSize: 16,
-    marginBottom: 8,
+  header: {
+    alignItems: 'center',
+    marginBottom: 24,
   },
   avatar: {
     width: 80,
@@ -78,32 +145,101 @@ const styles = StyleSheet.create({
     borderColor: '#c9a84c',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 16,
-},
+    marginBottom: 12,
+  },
   avatarText: {
     color: '#c9a84c',
     fontSize: 28,
     fontWeight: 'bold',
   },
-  streak: {
-    color: '#FF6B35',
-    fontSize: 16,
+  username: {
+    color: '#c9a84c',
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 8,
-    alignSelf: 'stretch',
-    textAlign: 'center',
+    marginBottom: 4,
+  },
+  joinDate: {
+    color: '#5a5650',
+    fontSize: 13,
+  },
+  card: {
+    backgroundColor: '#0f0f0f',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#1e1e1e',
+    marginBottom: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 0,
+  },
+  halfCard: {
+    flex: 1,
+    marginBottom: 12,
+  },
+  levelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  levelText: {
+    color: '#e8e0cc',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  titleText: {
+    color: '#c9a84c',
+    fontSize: 13,
+    fontWeight: 'bold',
   },
   xpBarContainer: {
-    width: '70%',
-    height: 12,
+    height: 8,
     backgroundColor: '#1e1e1e',
     borderRadius: 6,
     overflow: 'hidden',
-    marginTop: 8,
+    marginBottom: 8,
   },
   xpBar: {
     height: '100%',
     backgroundColor: '#c9a84c',
     borderRadius: 6,
+  },
+  xpLabel: {
+    color: '#5a5650',
+    fontSize: 12,
+    textAlign: 'right',
+  },
+  cardLabel: {
+    color: '#5a5650',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 1.5,
+    marginBottom: 8,
+  },
+  cardValue: {
+    color: '#e8e0cc',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  cardValueOrange: {
+    color: '#FF6B35',
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  cardSub: {
+    color: '#5a5650',
+    fontSize: 12,
+  },
+  habitName: {
+    color: '#e8e0cc',
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    marginTop: 4,
   },
 });
