@@ -103,7 +103,7 @@ export default function RecordsScreen() {
                 num = null;
             } else {
                 const m = parseInt(inputMinutes || '0', 10);
-                const s = parseInt(inputSeconds || '0', 10);
+                const s = Math.min(parseInt(inputSeconds || '0', 10), 59);
                 num = (isNaN(m) ? 0 : m) * 60 + (isNaN(s) ? 0 : s);
             }
         } else {
@@ -143,9 +143,13 @@ export default function RecordsScreen() {
 
             <Modal visible={editing !== null} transparent animationType="fade">
                 <KeyboardAvoidingView
-                    style={styles.modalOverlay}
+                    style={{ flex: 1 }}
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-                    <View style={styles.modalBox}>
+                    <TouchableOpacity
+                        style={styles.modalOverlay}
+                        activeOpacity={1}
+                        onPress={() => setEditing(null)}>
+                    <TouchableOpacity style={styles.modalBox} activeOpacity={1} onPress={() => {}}>
                         <Text style={styles.modalTitle}>{editing?.name}</Text>
                         <Text style={styles.modalUnit}>
                             {editing?.unit === 'seconds'
@@ -196,11 +200,23 @@ export default function RecordsScreen() {
                                 onPress={() => setEditing(null)}>
                                 <Text style={styles.cancelText}>Cancel</Text>
                             </TouchableOpacity>
+                            <TouchableOpacity
+                                style={styles.clearButton}
+                                onPress={async () => {
+                                    if (!editing) return;
+                                    const newValues = { ...values, [editing.name]: null };
+                                    setValues(newValues);
+                                    await AsyncStorage.setItem('elevo_records', JSON.stringify(newValues));
+                                    setEditing(null);
+                                }}>
+                                <Text style={styles.clearText}>Clear</Text>
+                            </TouchableOpacity>
                             <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                                 <Text style={styles.saveText}>Save</Text>
                             </TouchableOpacity>
                         </View>
-                    </View>
+                    </TouchableOpacity>
+                    </TouchableOpacity>
                 </KeyboardAvoidingView>
             </Modal>
         </View>
@@ -302,6 +318,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     cancelText: {
+        color: '#5a5650',
+        fontSize: 15,
+        fontWeight: 'bold',
+    },
+    clearButton: {
+        flex: 1,
+        paddingVertical: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#5a5650',
+        alignItems: 'center',
+    },
+    clearText: {
         color: '#5a5650',
         fontSize: 15,
         fontWeight: 'bold',

@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -18,23 +18,28 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
-        const savedUsername = await AsyncStorage.getItem('elevo_username');
-        const savedLevel = await AsyncStorage.getItem('elevo_level');
-        const savedXp = await AsyncStorage.getItem('elevo_xp');
-        const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
-        const savedSubArchetype = await AsyncStorage.getItem('elevo_subarchetype');
-        const savedStreak = await AsyncStorage.getItem('elevo_streak');
-        const savedCompletions = await AsyncStorage.getItem('elevo_completions');
-        const savedLifetimeXp = await AsyncStorage.getItem('elevo_lifetime_xp');
+        const [
+          savedUsername, savedLevel, savedXp, savedArchetype, savedSubArchetype,
+          savedStreak, savedCompletions, savedLifetimeXp, rawJoinDate,
+        ] = await Promise.all([
+          AsyncStorage.getItem('elevo_username'),
+          AsyncStorage.getItem('elevo_level'),
+          AsyncStorage.getItem('elevo_xp'),
+          AsyncStorage.getItem('elevo_archetype'),
+          AsyncStorage.getItem('elevo_subarchetype'),
+          AsyncStorage.getItem('elevo_streak'),
+          AsyncStorage.getItem('elevo_completions'),
+          AsyncStorage.getItem('elevo_lifetime_xp'),
+          AsyncStorage.getItem('elevo_join_date'),
+        ]);
 
-        // Set join date on first launch
-        let savedJoinDate = await AsyncStorage.getItem('elevo_join_date');
+        let savedJoinDate = rawJoinDate;
         if (!savedJoinDate) {
           savedJoinDate = new Date().toISOString().split('T')[0];
           await AsyncStorage.setItem('elevo_join_date', savedJoinDate);
         }
 
-        setUsername(savedUsername || 'Anonymous');
+        setUsername(savedUsername || '');
         setLevel(savedLevel ? Number(savedLevel) : 1);
         setXp(savedXp ? Number(savedXp) : 0);
         setArchetype(savedArchetype || '');
@@ -53,22 +58,40 @@ export default function ProfileScreen() {
   const xpProgress = Math.min((xp / getXpForLevel(level + 1)) * 100, 100);
 
   const formatJoinDate = (dateStr: string) => {
-    const date = new Date(dateStr);
+    const date = new Date(dateStr + 'T12:00:00');
     return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   };
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       {/* Header */}
-      <View style={styles.header}>
+      <TouchableOpacity
+        style={styles.header}
+        onPress={() => Alert.prompt(
+          'Set Username',
+          'Enter your username',
+          (newUsername) => {
+            const trimmed = newUsername?.trim();
+            if (trimmed) {
+              AsyncStorage.setItem('elevo_username', trimmed);
+              setUsername(trimmed);
+            }
+          },
+          'plain-text',
+          username,
+        )}>
         <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{username.charAt(0).toUpperCase()}</Text>
+          <Text style={styles.avatarText}>{username ? username.charAt(0).toUpperCase() : '?'}</Text>
         </View>
-        <Text style={styles.username}>{username}</Text>
+        {username ? (
+          <Text style={styles.username}>{username}</Text>
+        ) : (
+          <Text style={styles.usernamePlaceholder}>Tap to set username</Text>
+        )}
         {joinDate ? (
           <Text style={styles.joinDate}>Member since {formatJoinDate(joinDate)}</Text>
         ) : null}
-      </View>
+      </TouchableOpacity>
 
       {/* Level + XP */}
       <View style={styles.card}>
@@ -241,5 +264,11 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 4,
     marginTop: 4,
+  },
+  usernamePlaceholder: {
+    color: '#5a5650',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
   },
 });

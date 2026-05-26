@@ -4,7 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import 'react-native-reanimated';
 import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import LoadingScreen from './loading';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
@@ -13,16 +14,15 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
+  const [ready, setReady] = useState(false);
 
-//  useEffect(() => {
-//   const check = async () => {
-//      const done = await AsyncStorage.getItem('elevo_onboarding_done');
-//      if (!done) {
-//        router.replace('/onboarding/welcome');
-//      }
-//    };
-//    check();
-//  }, []);
+  useEffect(() => {
+    const minDelay = new Promise(resolve => setTimeout(resolve, 1600));
+    const dataLoad = AsyncStorage.getItem('elevo_xp');
+    Promise.all([minDelay, dataLoad]).finally(() => setReady(true));
+  }, []);
+
+  if (!ready) return <LoadingScreen />;
 
   return (
     <>

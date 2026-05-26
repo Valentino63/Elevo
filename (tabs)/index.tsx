@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Modal } from 'react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -13,7 +13,6 @@ export default function HomeScreen() {
   const [level, setLevel] = useState<number | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
   const [lastLogDate, setLastLogDate] = useState<string | null>(null);
-  const [loaded, setLoaded] = useState(false);
   const [archetype, setArchetype] = useState<string | null>(null);
   const [subArchetype, setSubArchetype] = useState<string | null>(null);
   const title = getTitle(level ?? 1);
@@ -26,14 +25,22 @@ export default function HomeScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      setLoaded(false);
       const loadData = async () => {
-        const savedXp = await AsyncStorage.getItem('elevo_xp');
-        const savedLevel = await AsyncStorage.getItem('elevo_level');
-        const savedStreak = await AsyncStorage.getItem('elevo_streak');
-        const savedLastLogDate = await AsyncStorage.getItem('elevo_last_log_date');
-        const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
-        const savedLoggedToday = await AsyncStorage.getItem('elevo_logged_today');
+        const [
+          savedXp, savedLevel, savedStreak, savedLastLogDate, savedArchetype,
+          savedSubArchetype, savedLoggedToday, savedCompletions, savedNewTaskStarts, savedLifetimeXp,
+        ] = await Promise.all([
+          AsyncStorage.getItem('elevo_xp'),
+          AsyncStorage.getItem('elevo_level'),
+          AsyncStorage.getItem('elevo_streak'),
+          AsyncStorage.getItem('elevo_last_log_date'),
+          AsyncStorage.getItem('elevo_archetype'),
+          AsyncStorage.getItem('elevo_subarchetype'),
+          AsyncStorage.getItem('elevo_logged_today'),
+          AsyncStorage.getItem('elevo_completions'),
+          AsyncStorage.getItem('elevo_new_task_starts'),
+          AsyncStorage.getItem('elevo_lifetime_xp'),
+        ]);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
         setXp(savedXp ? Math.round(Number(savedXp) / 5) * 5 : 0);
@@ -41,54 +48,40 @@ export default function HomeScreen() {
         setLastLogDate(savedLastLogDate);
         if (savedLastLogDate && savedLastLogDate !== today && savedLastLogDate !== yesterday) {
           setStreak(0);
+          await AsyncStorage.setItem('elevo_streak', '0');
         } else {
           setStreak(savedStreak ? Number(savedStreak) : 0);
         }
-        if (savedArchetype) setArchetype(savedArchetype);
-        const savedSubArchetype = await AsyncStorage.getItem('elevo_subarchetype');
-        if (savedSubArchetype) setSubArchetype(savedSubArchetype);
+        setArchetype(savedArchetype ?? null);
+        setSubArchetype(savedSubArchetype ?? null);
         setLoggedToday(savedLastLogDate === today && savedLoggedToday ? JSON.parse(savedLoggedToday) : []);
-        const savedCompletions = await AsyncStorage.getItem('elevo_completions');
         if (savedCompletions) setCompletions(JSON.parse(savedCompletions));
-        const savedNewTaskStarts = await AsyncStorage.getItem('elevo_new_task_starts');
         if (savedNewTaskStarts) setNewTaskStarts(JSON.parse(savedNewTaskStarts));
-        const savedLifetimeXp = await AsyncStorage.getItem('elevo_lifetime_xp');
         if (savedLifetimeXp) setLifetimeXp(Number(savedLifetimeXp));
-        setLoaded(true);
       };
       loadData();
     }, [])
   );
 
-  useEffect(() => {
-    if (!loaded) return;
-    AsyncStorage.setItem('elevo_xp', String(xp));
-    AsyncStorage.setItem('elevo_level', String(level));
-    AsyncStorage.setItem('elevo_streak', String(streak));
-    AsyncStorage.setItem('elevo_last_log_date', lastLogDate ?? '');
-    AsyncStorage.setItem('elevo_logged_today', JSON.stringify(loggedToday));
-    AsyncStorage.setItem('elevo_completions', JSON.stringify(completions));
-    AsyncStorage.setItem('elevo_new_task_starts', JSON.stringify(newTaskStarts));
-    AsyncStorage.setItem('elevo_lifetime_xp', String(lifetimeXp));
-  }, [xp, level, streak, lastLogDate, loggedToday, completions, newTaskStarts, lifetimeXp, loaded]);
-
-  function handleLogActivity(amount: number, activityName: string) {
+  const handleLogActivity = useCallback(async (amount: number, activityName: string) => {
     if (loggedToday.includes(activityName)) return;
     const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+
+    let newStreak = streak ?? 0;
+    let newLastLogDate = lastLogDate;
+    let newLoggedToday: string[];
     if (lastLogDate !== today) {
-      const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-      if (lastLogDate === yesterday) {
-        setStreak(prev => (prev ?? 0) + 1);
-      } else {
-        setStreak(1);
-      }
-      setLastLogDate(today);
-      setLoggedToday([activityName]);
+      newStreak = lastLogDate === yesterday ? (streak ?? 0) + 1 : 1;
+      newLastLogDate = today;
+      newLoggedToday = [activityName];
     } else {
-      setLoggedToday(prev => [...prev, activityName]);
+      newLoggedToday = [...loggedToday, activityName];
     }
+
     const currentCount = completions[activityName] ?? 0;
-    setCompletions(prev => ({ ...prev, [activityName]: currentCount + 1 }));
+    const newCompletions = { ...completions, [activityName]: currentCount + 1 };
+
     if (activityName === 'Misogi') {
       let lvl = level ?? 1;
       let currentXp = xp ?? 0;
@@ -101,48 +94,80 @@ export default function HomeScreen() {
         currentXp -= getXpForLevel(lvl + 1);
         lvl += 1;
       }
+      const newXp = Math.round(currentXp / 5) * 5;
+      const newLifetimeXp = lifetimeXp + misogiGained;
+      setStreak(newStreak);
+      setLastLogDate(newLastLogDate);
+      setLoggedToday(newLoggedToday);
+      setCompletions(newCompletions);
       setLevel(lvl);
-      setXp(Math.round(currentXp / 5) * 5);
-      setLifetimeXp(prev => prev + misogiGained);
+      setXp(newXp);
+      setLifetimeXp(newLifetimeXp);
+      await Promise.all([
+        AsyncStorage.setItem('elevo_streak', String(newStreak)),
+        AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
+        AsyncStorage.setItem('elevo_logged_today', JSON.stringify(newLoggedToday)),
+        AsyncStorage.setItem('elevo_completions', JSON.stringify(newCompletions)),
+        AsyncStorage.setItem('elevo_level', String(lvl)),
+        AsyncStorage.setItem('elevo_xp', String(newXp)),
+        AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
+      ]);
       return;
     }
+
     const effectiveLoggedToday = lastLogDate !== today ? [] : loggedToday;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    let updatedNewTaskStarts = newTaskStarts;
+    let updatedTaskStarts = newTaskStarts;
     if (currentCount === 0 && activityFreq[activityName] === 'Daily' && !newTaskStarts[activityName]) {
       const recentCount = Object.values(newTaskStarts).filter(d => d >= thirtyDaysAgo).length;
       if (recentCount < 3) {
-        updatedNewTaskStarts = { ...newTaskStarts, [activityName]: new Date().toISOString() };
-        setNewTaskStarts(updatedNewTaskStarts);
+        updatedTaskStarts = { ...newTaskStarts, [activityName]: new Date().toISOString() };
       }
     }
-    const taskStartDate = updatedNewTaskStarts[activityName];
+    const taskStartDate = updatedTaskStarts[activityName];
     const isNewTask = taskStartDate != null && taskStartDate >= thirtyDaysAgo;
     const newHabitMultiplier = isNewTask && currentCount < 5 && activityFreq[activityName] === 'Daily' ? 3 : 1;
     const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday) * newHabitMultiplier);
-    setLifetimeXp(prev => prev + adjustedAmount);
-    const newXp = (xp ?? 0) + adjustedAmount;
-    const threshold = getXpForLevel((level ?? 1) + 1);
-    if (newXp >= threshold) {
-      setLevel((level ?? 1) + 1);
-      setXp(newXp - threshold);
-    } else {
-      setXp(newXp);
+    let newXp = (xp ?? 0) + adjustedAmount;
+    let newLevel = level ?? 1;
+    while (newXp >= getXpForLevel(newLevel + 1)) {
+      newXp -= getXpForLevel(newLevel + 1);
+      newLevel += 1;
     }
-  }
+    const finalXp = Math.round(newXp / 5) * 5;
+    const newLifetimeXp = lifetimeXp + adjustedAmount;
+    setStreak(newStreak);
+    setLastLogDate(newLastLogDate);
+    setLoggedToday(newLoggedToday);
+    setCompletions(newCompletions);
+    setNewTaskStarts(updatedTaskStarts);
+    setLevel(newLevel);
+    setXp(finalXp);
+    setLifetimeXp(newLifetimeXp);
+    await Promise.all([
+      AsyncStorage.setItem('elevo_streak', String(newStreak)),
+      AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
+      AsyncStorage.setItem('elevo_logged_today', JSON.stringify(newLoggedToday)),
+      AsyncStorage.setItem('elevo_completions', JSON.stringify(newCompletions)),
+      AsyncStorage.setItem('elevo_new_task_starts', JSON.stringify(updatedTaskStarts)),
+      AsyncStorage.setItem('elevo_level', String(newLevel)),
+      AsyncStorage.setItem('elevo_xp', String(finalXp)),
+      AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
+    ]);
+  }, [loggedToday, lastLogDate, streak, completions, level, xp, lifetimeXp, newTaskStarts, archetype, subArchetype]);
 
   const xpProgress = Math.min(((xp ?? 0) / getXpForLevel((level ?? 1) + 1)) * 100, 100);
 
-  const filteredCategories = categories.map(category => ({
+  const filteredCategories = useMemo(() => categories.map(category => ({
     ...category,
     activities: archetype
       ? category.activities.filter(a => activityArchetypes[a.name]?.includes(archetype))
       : category.activities,
-  })).filter(category => category.activities.length > 0);
+  })).filter(category => category.activities.length > 0), [archetype]);
 
-  const xpToday = loggedToday.reduce((sum, name) => sum + (activityXp[name] ?? 0), 0);
-  const allFilteredActivities = filteredCategories.flatMap(c => c.activities);
-  const suggestedActivities = allFilteredActivities.slice(0, 8);
+  const xpToday = useMemo(() => loggedToday.reduce((sum, name) => sum + (activityXp[name] ?? 0), 0), [loggedToday]);
+  const allFilteredActivities = useMemo(() => filteredCategories.flatMap(c => c.activities), [filteredCategories]);
+  const suggestedActivities = useMemo(() => allFilteredActivities.slice(0, 8), [allFilteredActivities]);
 
   return (
     <View style={styles.container}>
@@ -272,7 +297,7 @@ export default function HomeScreen() {
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setExplanationModal(null)}>
-          <View style={styles.modalCard}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modalCard}>
             <Text style={styles.modalTitle}>{explanationModal}</Text>
             <View style={styles.modalDivider} />
             <Text style={styles.modalBody}>
@@ -281,7 +306,7 @@ export default function HomeScreen() {
             <TouchableOpacity onPress={() => setExplanationModal(null)} style={styles.modalClose}>
               <Text style={styles.modalCloseText}>Got it</Text>
             </TouchableOpacity>
-          </View>
+          </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
     </View>
@@ -383,14 +408,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
-  activityTitleText: {
-    color: '#e8e0cc',
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginHorizontal: 24,
-    marginBottom: 4,
-  },
   horizontalLine: {
     backgroundColor: '#2a2a2a',
     height: 1,
@@ -439,13 +456,6 @@ const styles = StyleSheet.create({
   todayItemXp: {
     color: '#c9a84c',
     fontSize: 12,
-  },
-  todayXpTotal: {
-    color: '#c9a84c',
-    fontSize: 13,
-    fontWeight: 'bold',
-    marginTop: 10,
-    textAlign: 'right',
   },
   emptyState: {
     marginHorizontal: 24,

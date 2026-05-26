@@ -33,6 +33,7 @@ type WorkoutSession = {
     exercises: { name: string; sets: HistorySet[] }[];
 };
 type BuilderExercise = {
+    id: string;
     name: string;
     type: ExerciseType;
     sets: string;
@@ -72,8 +73,10 @@ export default function WorkoutScreen() {
     useFocusEffect(
         useCallback(() => {
             const load = async () => {
-                const t = await AsyncStorage.getItem('elevo_workout_templates');
-                const h = await AsyncStorage.getItem('elevo_workout_history');
+                const [t, h] = await Promise.all([
+                    AsyncStorage.getItem('elevo_workout_templates'),
+                    AsyncStorage.getItem('elevo_workout_history'),
+                ]);
                 if (t) setTemplates(JSON.parse(t));
                 if (h) setHistory(JSON.parse(h));
             };
@@ -82,13 +85,14 @@ export default function WorkoutScreen() {
     );
 
     const newExerciseRow = (): BuilderExercise =>
-        ({ name: '', type: 'reps', sets: '3', reps: '8', weight: '0', duration: '30' });
+        ({ id: Date.now().toString() + Math.random(), name: '', type: 'reps', sets: '3', reps: '8', weight: '0', duration: '30' });
 
     const openBuilder = (template?: Template) => {
         if (template) {
             setEditingTemplate(template);
             setBuilderName(template.name);
             setBuilderExercises(template.exercises.map(e => ({
+                id: Date.now().toString() + Math.random(),
                 name: e.name,
                 type: e.type ?? 'reps',
                 sets: String(e.sets),
@@ -104,7 +108,7 @@ export default function WorkoutScreen() {
         setView('builder');
     };
 
-    const updateExerciseRow = (index: number, field: keyof Omit<BuilderExercise, 'type'>, value: string) => {
+    const updateExerciseRow = (index: number, field: keyof Omit<BuilderExercise, 'type' | 'id'>, value: string) => {
         setBuilderExercises(prev => prev.map((ex, i) => i === index ? { ...ex, [field]: value } : ex));
     };
 
@@ -184,7 +188,7 @@ export default function WorkoutScreen() {
     const markSetDone = (exIndex: number, setIndex: number) => {
         setActiveExercises(prev => prev.map((ex, ei) =>
             ei === exIndex
-                ? { ...ex, sets: ex.sets.map((s, si) => si === setIndex ? { ...s, done: true } : s) }
+                ? { ...ex, sets: ex.sets.map((s, si) => si === setIndex ? { ...s, done: !s.done } : s) }
                 : ex
         ));
     };
@@ -216,13 +220,18 @@ export default function WorkoutScreen() {
                 sessionExercises.push({
                     name: ex.name,
                     sets: doneSets.map(s => ({
-                        weight: parseFloat(s.weight) || 0,
-                        reps: parseInt(s.reps) || 0,
-                        duration: parseInt(s.duration) || 0,
+                        weight: ex.type === 'reps' ? parseFloat(s.weight) || 0 : 0,
+                        reps: ex.type === 'reps' ? parseInt(s.reps) || 0 : 0,
+                        duration: ex.type === 'time' ? parseInt(s.duration) || 0 : 0,
                     })),
                 });
                 if (ex.type === 'reps' && doneSets.some(s => isPR(ex.name, s.weight, s.reps))) prCount++;
             }
+        }
+
+        if (sessionExercises.length === 0) {
+            Alert.alert('No sets logged', 'Mark at least one set done before finishing.');
+            return;
         }
 
         const session: WorkoutSession = {
@@ -232,7 +241,7 @@ export default function WorkoutScreen() {
             exercises: sessionExercises,
         };
 
-        const newHistory = [...history, session];
+        const newHistory = [...history, session].slice(-50);
         setHistory(newHistory);
         await AsyncStorage.setItem('elevo_workout_history', JSON.stringify(newHistory));
 
@@ -267,7 +276,7 @@ export default function WorkoutScreen() {
                     />
                     <Text style={styles.sectionLabel}>EXERCISES</Text>
                     {builderExercises.map((ex, i) => (
-                        <View key={i} style={styles.builderExRow}>
+                        <View key={ex.id} style={styles.builderExRow}>
                             <View style={styles.builderExNameRow}>
                                 <TextInput
                                     style={[styles.input, { flex: 1 }]}
