@@ -4,7 +4,7 @@ import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getTitle, getXpForLevel,
-  categories, activityArchetypes, activityFreq, activityXp,
+  categories, activityArchetypes, activityFreq,
   getMultiplier, activityExplanations
 } from '../utils';
 
@@ -22,6 +22,8 @@ export default function HomeScreen() {
   const [showAll, setShowAll] = useState(false);
   const [explanationModal, setExplanationModal] = useState<string | null>(null);
   const [lifetimeXp, setLifetimeXp] = useState(0);
+  const [sideArchetypes, setSideArchetypes] = useState<string[]>([]);
+  const [earnedXp, setEarnedXp] = useState<Record<string, number>>({});
 
   useFocusEffect(
     useCallback(() => {
@@ -29,6 +31,7 @@ export default function HomeScreen() {
         const [
           savedXp, savedLevel, savedStreak, savedLastLogDate, savedArchetype,
           savedSubArchetype, savedLoggedToday, savedCompletions, savedNewTaskStarts, savedLifetimeXp,
+          savedSideArchetypes, savedEarnedXp,
         ] = await Promise.all([
           AsyncStorage.getItem('elevo_xp'),
           AsyncStorage.getItem('elevo_level'),
@@ -40,6 +43,8 @@ export default function HomeScreen() {
           AsyncStorage.getItem('elevo_completions'),
           AsyncStorage.getItem('elevo_new_task_starts'),
           AsyncStorage.getItem('elevo_lifetime_xp'),
+          AsyncStorage.getItem('elevo_side_archetypes'),
+          AsyncStorage.getItem('elevo_earned_xp'),
         ]);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -58,6 +63,8 @@ export default function HomeScreen() {
         if (savedCompletions) setCompletions(JSON.parse(savedCompletions));
         if (savedNewTaskStarts) setNewTaskStarts(JSON.parse(savedNewTaskStarts));
         if (savedLifetimeXp) setLifetimeXp(Number(savedLifetimeXp));
+        setSideArchetypes(savedSideArchetypes ? JSON.parse(savedSideArchetypes) : []);
+        setEarnedXp(savedLastLogDate === today && savedEarnedXp ? JSON.parse(savedEarnedXp) : {});
       };
       loadData();
     }, [])
@@ -96,6 +103,7 @@ export default function HomeScreen() {
       }
       const newXp = Math.round(currentXp / 5) * 5;
       const newLifetimeXp = lifetimeXp + misogiGained;
+      const newEarnedXp = { ...earnedXp, Misogi: misogiGained };
       setStreak(newStreak);
       setLastLogDate(newLastLogDate);
       setLoggedToday(newLoggedToday);
@@ -103,6 +111,7 @@ export default function HomeScreen() {
       setLevel(lvl);
       setXp(newXp);
       setLifetimeXp(newLifetimeXp);
+      setEarnedXp(newEarnedXp);
       await Promise.all([
         AsyncStorage.setItem('elevo_streak', String(newStreak)),
         AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
@@ -111,6 +120,7 @@ export default function HomeScreen() {
         AsyncStorage.setItem('elevo_level', String(lvl)),
         AsyncStorage.setItem('elevo_xp', String(newXp)),
         AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
+        AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
       ]);
       return;
     }
@@ -127,7 +137,7 @@ export default function HomeScreen() {
     const taskStartDate = updatedTaskStarts[activityName];
     const isNewTask = taskStartDate != null && taskStartDate >= thirtyDaysAgo;
     const newHabitMultiplier = isNewTask && currentCount < 5 && activityFreq[activityName] === 'Daily' ? 3 : 1;
-    const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday) * newHabitMultiplier);
+    const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday, sideArchetypes) * newHabitMultiplier);
     let newXp = (xp ?? 0) + adjustedAmount;
     let newLevel = level ?? 1;
     while (newXp >= getXpForLevel(newLevel + 1)) {
@@ -136,6 +146,7 @@ export default function HomeScreen() {
     }
     const finalXp = Math.round(newXp / 5) * 5;
     const newLifetimeXp = lifetimeXp + adjustedAmount;
+    const newEarnedXp = { ...earnedXp, [activityName]: adjustedAmount };
     setStreak(newStreak);
     setLastLogDate(newLastLogDate);
     setLoggedToday(newLoggedToday);
@@ -144,6 +155,7 @@ export default function HomeScreen() {
     setLevel(newLevel);
     setXp(finalXp);
     setLifetimeXp(newLifetimeXp);
+    setEarnedXp(newEarnedXp);
     await Promise.all([
       AsyncStorage.setItem('elevo_streak', String(newStreak)),
       AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
@@ -153,21 +165,34 @@ export default function HomeScreen() {
       AsyncStorage.setItem('elevo_level', String(newLevel)),
       AsyncStorage.setItem('elevo_xp', String(finalXp)),
       AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
+      AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
     ]);
-  }, [loggedToday, lastLogDate, streak, completions, level, xp, lifetimeXp, newTaskStarts, archetype, subArchetype]);
+  }, [loggedToday, lastLogDate, streak, completions, level, xp, lifetimeXp, newTaskStarts, archetype, subArchetype, sideArchetypes, earnedXp]);
 
   const xpProgress = Math.min(((xp ?? 0) / getXpForLevel((level ?? 1) + 1)) * 100, 100);
 
   const filteredCategories = useMemo(() => categories.map(category => ({
     ...category,
     activities: archetype
-      ? category.activities.filter(a => activityArchetypes[a.name]?.includes(archetype))
+      ? category.activities.filter(a =>
+          activityArchetypes[a.name]?.includes(archetype) ||
+          sideArchetypes.some(sa => activityArchetypes[a.name]?.includes(sa))
+        )
       : category.activities,
-  })).filter(category => category.activities.length > 0), [archetype]);
+  })).filter(category => category.activities.length > 0), [archetype, sideArchetypes]);
 
-  const xpToday = useMemo(() => loggedToday.reduce((sum, name) => sum + (activityXp[name] ?? 0), 0), [loggedToday]);
+  const xpToday = useMemo(() => loggedToday.reduce((sum, name) => sum + (earnedXp[name] ?? 0), 0), [loggedToday, earnedXp]);
   const allFilteredActivities = useMemo(() => filteredCategories.flatMap(c => c.activities), [filteredCategories]);
   const suggestedActivities = useMemo(() => allFilteredActivities.slice(0, 8), [allFilteredActivities]);
+  const displayXpMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const activity of allFilteredActivities) {
+      if (activity.name === 'Misogi') continue;
+      const m = getMultiplier(activity.name, archetype, subArchetype, loggedToday, sideArchetypes);
+      map[activity.name] = Math.round(activity.xp * m / 5) * 5;
+    }
+    return map;
+  }, [allFilteredActivities, archetype, subArchetype, loggedToday, sideArchetypes]);
 
   return (
     <View style={styles.container}>
@@ -199,7 +224,7 @@ export default function HomeScreen() {
               <View key={name} style={styles.todayItem}>
                 <Text style={styles.todayCheck}>✓</Text>
                 <Text style={styles.todayItemName} numberOfLines={1}>{name}</Text>
-                <Text style={styles.todayItemXp}>+{activityXp[name] ?? 0}</Text>
+                <Text style={styles.todayItemXp}>+{earnedXp[name] ?? 0}</Text>
               </View>
             ))}
           </View>
@@ -231,7 +256,7 @@ export default function HomeScreen() {
                     onPress={() => handleLogActivity(activity.xp, activity.name)}>
                     <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
                     <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
-                      {activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}
+                      {activity.name === 'Misogi' ? '+5 Levels' : `+${displayXpMap[activity.name] ?? activity.xp} XP`}
                     </Text>
                   </TouchableOpacity>
                   {activityExplanations[activity.name] && (
@@ -267,7 +292,7 @@ export default function HomeScreen() {
                         onPress={() => handleLogActivity(activity.xp, activity.name)}>
                         <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
                         <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
-                          {activity.name === 'Misogi' ? '+5 Levels' : `+${activity.xp} XP`}
+                          {activity.name === 'Misogi' ? '+5 Levels' : `+${displayXpMap[activity.name] ?? activity.xp} XP`}
                         </Text>
                       </TouchableOpacity>
                       {activityExplanations[activity.name] && (

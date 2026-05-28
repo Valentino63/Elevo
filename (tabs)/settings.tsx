@@ -29,17 +29,22 @@ export default function SettingsScreen() {
   const [username, setUsername] = useState('');
   const [archetype, setArchetype] = useState('');
   const [subArchetype, setSubArchetype] = useState('');
+  const [sideArchetypes, setSideArchetypes] = useState<string[]>([]);
   const router = useRouter();
 
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
-        const savedUsername = await AsyncStorage.getItem('elevo_username');
-        const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
-        const savedSubArchetype = await AsyncStorage.getItem('elevo_subarchetype');
+        const [savedUsername, savedArchetype, savedSubArchetype, savedSide] = await Promise.all([
+          AsyncStorage.getItem('elevo_username'),
+          AsyncStorage.getItem('elevo_archetype'),
+          AsyncStorage.getItem('elevo_subarchetype'),
+          AsyncStorage.getItem('elevo_side_archetypes'),
+        ]);
         if (savedUsername) setUsername(savedUsername);
         if (savedArchetype) setArchetype(savedArchetype);
         if (savedSubArchetype) setSubArchetype(savedSubArchetype);
+        setSideArchetypes(savedSide ? JSON.parse(savedSide) : []);
       };
       loadData();
     }, [])
@@ -73,7 +78,7 @@ export default function SettingsScreen() {
               'elevo_last_log_date', 'elevo_logged_today',
               'elevo_completions', 'elevo_new_task_starts',
               'elevo_workout_history', 'elevo_records',
-              'elevo_lifetime_xp',
+              'elevo_lifetime_xp', 'elevo_earned_xp',
             ];
             await AsyncStorage.multiRemove(PROGRESS_KEYS);
           },
@@ -94,6 +99,7 @@ export default function SettingsScreen() {
             setUsername('');
             setArchetype('');
             setSubArchetype('');
+            setSideArchetypes([]);
           },
         },
       ]
@@ -124,12 +130,22 @@ export default function SettingsScreen() {
               label="Sub-archetype"
               value={subArchetype}
               onPress={async () => {
-                await AsyncStorage.removeItem('elevo_subarchetype');
+                await AsyncStorage.multiRemove(['elevo_subarchetype', 'elevo_side_archetypes']);
                 setSubArchetype('');
+                setSideArchetypes([]);
                 router.push('/(tabs)/archetypes');
               }}
             />
           ) : null}
+          <SettingsRow
+            label="Side paths"
+            value={sideArchetypes.length > 0 ? sideArchetypes.join(', ') : 'None'}
+            onPress={async () => {
+              await AsyncStorage.removeItem('elevo_side_archetypes');
+              setSideArchetypes([]);
+              router.push('/(tabs)/archetypes');
+            }}
+          />
         </View>
 
         <SectionHeader title="APPEARANCE" />

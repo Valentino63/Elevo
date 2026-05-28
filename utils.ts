@@ -494,6 +494,7 @@ export function getMultiplier(
   archetype: string | null,
   subArchetype: string | null,
   loggedToday: string[],
+  sideArchetypes: string[] = [],
 ): number {
   if (!archetype) return 1.0;
 
@@ -522,7 +523,9 @@ export function getMultiplier(
     }
   }
 
-  return activityArchetypes[activityName]?.includes(archetype) ? 1.0 : 0.7;
+  if (activityArchetypes[activityName]?.includes(archetype)) return 1.0;
+  if (sideArchetypes.some(sa => activityArchetypes[activityName]?.includes(sa))) return 0.9;
+  return 0.7;
 }
 
 export const archetypes = [

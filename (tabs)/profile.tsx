@@ -14,13 +14,14 @@ export default function ProfileScreen() {
   const [completions, setCompletions] = useState<Record<string, number>>({});
   const [joinDate, setJoinDate] = useState('');
   const [lifetimeXp, setLifetimeXp] = useState(0);
+  const [sideArchetypes, setSideArchetypes] = useState<string[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       const loadData = async () => {
         const [
           savedUsername, savedLevel, savedXp, savedArchetype, savedSubArchetype,
-          savedStreak, savedCompletions, savedLifetimeXp, rawJoinDate,
+          savedStreak, savedCompletions, savedLifetimeXp, rawJoinDate, savedSide,
         ] = await Promise.all([
           AsyncStorage.getItem('elevo_username'),
           AsyncStorage.getItem('elevo_level'),
@@ -31,6 +32,7 @@ export default function ProfileScreen() {
           AsyncStorage.getItem('elevo_completions'),
           AsyncStorage.getItem('elevo_lifetime_xp'),
           AsyncStorage.getItem('elevo_join_date'),
+          AsyncStorage.getItem('elevo_side_archetypes'),
         ]);
 
         let savedJoinDate = rawJoinDate;
@@ -48,6 +50,7 @@ export default function ProfileScreen() {
         setCompletions(savedCompletions ? JSON.parse(savedCompletions) : {});
         setJoinDate(savedJoinDate);
         setLifetimeXp(savedLifetimeXp ? Number(savedLifetimeXp) : 0);
+        setSideArchetypes(savedSide ? JSON.parse(savedSide) : []);
       };
       loadData();
     }, [])
@@ -116,6 +119,7 @@ export default function ProfileScreen() {
           <Text style={styles.cardLabel}>PATH</Text>
           <Text style={styles.cardValue}>{archetype || '—'}</Text>
           {subArchetype ? <Text style={styles.cardSub}>{subArchetype}</Text> : null}
+          {sideArchetypes.length > 0 ? <Text style={styles.cardSub}>+ {sideArchetypes.join(' · ')}</Text> : null}
         </View>
       </View>
 

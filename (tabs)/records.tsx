@@ -14,6 +14,7 @@ import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 type RecordEntry = { name: string; unit: string };
+type RecordData = { current: number | null; history: number[] };
 
 const CATEGORIES: { title: string; records: RecordEntry[] }[] = [
     {
@@ -67,8 +68,45 @@ function formatValue(value: number | null | undefined, unit: string): string {
     return `${value} ${unit}`;
 }
 
+type HistoryItem = { label: string; value: string; separator: boolean };
+
+function getHistoryItems(history: number[], unit: string): HistoryItem[] {
+    if (history.length === 0) return [];
+    if (history.length <= 4) {
+        return history.map((v, i) => ({
+            label: i === 0 ? 'Day 1' : `#${i + 1}`,
+            value: formatValue(v, unit),
+            separator: false,
+        }));
+    }
+    const last4Start = history.length - 4;
+    return [
+        { label: 'Day 1', value: formatValue(history[0], unit), separator: false },
+        { label: '···', value: '', separator: true },
+        ...history.slice(-4).map((v, i) => ({
+            label: `#${last4Start + i + 1}`,
+            value: formatValue(v, unit),
+            separator: false,
+        })),
+    ];
+}
+
+function migrate(raw: Record<string, unknown>): Record<string, RecordData> {
+    const out: Record<string, RecordData> = {};
+    for (const [key, val] of Object.entries(raw)) {
+        if (val === null) {
+            out[key] = { current: null, history: [] };
+        } else if (typeof val === 'number') {
+            out[key] = { current: val, history: [] };
+        } else {
+            out[key] = val as RecordData;
+        }
+    }
+    return out;
+}
+
 export default function RecordsScreen() {
-    const [values, setValues] = useState<Record<string, number | null>>({});
+    const [values, setValues] = useState<Record<string, RecordData>>({});
     const [editing, setEditing] = useState<RecordEntry | null>(null);
     const [inputValue, setInputValue] = useState('');
     const [inputMinutes, setInputMinutes] = useState('');
@@ -78,19 +116,19 @@ export default function RecordsScreen() {
         useCallback(() => {
             const loadData = async () => {
                 const saved = await AsyncStorage.getItem('elevo_records');
-                if (saved) setValues(JSON.parse(saved));
+                if (saved) setValues(migrate(JSON.parse(saved)));
             };
             loadData();
         }, [])
     );
 
     const handleTap = (record: RecordEntry) => {
-        const stored = values[record.name];
+        const current = values[record.name]?.current ?? null;
         if (record.unit === 'seconds') {
-            setInputMinutes(stored != null ? String(Math.floor(stored / 60)) : '');
-            setInputSeconds(stored != null ? String(stored % 60) : '');
+            setInputMinutes(current != null ? String(Math.floor(current / 60)) : '');
+            setInputSeconds(current != null ? String(current % 60) : '');
         } else {
-            setInputValue(stored != null ? String(stored) : '');
+            setInputValue(current != null ? String(current) : '');
         }
         setEditing(record);
     };
@@ -110,7 +148,12 @@ export default function RecordsScreen() {
             const parsed = parseFloat(inputValue);
             num = isNaN(parsed) ? null : parsed;
         }
-        const newValues = { ...values, [editing.name]: num };
+        const existing = values[editing.name] ?? { current: null, history: [] };
+        const newHistory =
+            num !== null && existing.current !== null
+                ? [...existing.history, existing.current]
+                : existing.history;
+        const newValues = { ...values, [editing.name]: { current: num, history: newHistory } };
         setValues(newValues);
         await AsyncStorage.setItem('elevo_records', JSON.stringify(newValues));
         setEditing(null);
@@ -123,20 +166,40 @@ export default function RecordsScreen() {
                 {CATEGORIES.map(cat => (
                     <View key={cat.title}>
                         <Text style={styles.categoryHeader}>{cat.title.toUpperCase()}</Text>
-                        {cat.records.map(record => (
-                            <TouchableOpacity
-                                key={record.name}
-                                style={styles.row}
-                                onPress={() => handleTap(record)}>
-                                <Text style={styles.recordName}>{record.name}</Text>
-                                <Text style={[
-                                    styles.recordValue,
-                                    values[record.name] == null && styles.recordEmpty,
-                                ]}>
-                                    {formatValue(values[record.name], record.unit)}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                        {cat.records.map(record => {
+                            const entry = values[record.name];
+                            const current = entry?.current ?? null;
+                            const historyItems = getHistoryItems(entry?.history ?? [], record.unit);
+                            return (
+                                <View key={record.name} style={styles.outerRow}>
+                                    <TouchableOpacity
+                                        style={styles.row}
+                                        onPress={() => handleTap(record)}>
+                                        <Text style={styles.recordName}>{record.name}</Text>
+                                        <Text style={[
+                                            styles.recordValue,
+                                            current == null && styles.recordEmpty,
+                                        ]}>
+                                            {formatValue(current, record.unit)}
+                                        </Text>
+                                    </TouchableOpacity>
+                                    {historyItems.length > 0 && (
+                                        <View style={styles.historyRow}>
+                                            {historyItems.map((item, idx) =>
+                                                item.separator ? (
+                                                    <Text key={idx} style={styles.historySep}>···</Text>
+                                                ) : (
+                                                    <View key={idx} style={styles.historyChip}>
+                                                        <Text style={styles.historyLabel}>{item.label} </Text>
+                                                        <Text style={styles.historyValue}>{item.value}</Text>
+                                                    </View>
+                                                )
+                                            )}
+                                        </View>
+                                    )}
+                                </View>
+                            );
+                        })}
                     </View>
                 ))}
             </ScrollView>
@@ -204,7 +267,11 @@ export default function RecordsScreen() {
                                 style={styles.clearButton}
                                 onPress={async () => {
                                     if (!editing) return;
-                                    const newValues = { ...values, [editing.name]: null };
+                                    const existing = values[editing.name] ?? { current: null, history: [] };
+                                    const newValues = {
+                                        ...values,
+                                        [editing.name]: { current: null, history: existing.history },
+                                    };
                                     setValues(newValues);
                                     await AsyncStorage.setItem('elevo_records', JSON.stringify(newValues));
                                     setEditing(null);
@@ -245,12 +312,14 @@ const styles = StyleSheet.create({
         marginBottom: 8,
         letterSpacing: 1.5,
     },
+    outerRow: {
+        marginHorizontal: 24,
+        marginBottom: 8,
+    },
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginHorizontal: 24,
-        marginBottom: 8,
         paddingVertical: 12,
         paddingHorizontal: 16,
         backgroundColor: '#0f0f0f',
@@ -269,6 +338,31 @@ const styles = StyleSheet.create({
     },
     recordEmpty: {
         color: '#5a5650',
+    },
+    historyRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingTop: 6,
+        paddingBottom: 2,
+    },
+    historyChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    historyLabel: {
+        color: '#3a3a38',
+        fontSize: 11,
+    },
+    historyValue: {
+        color: '#5a5650',
+        fontSize: 11,
+        fontWeight: 'bold',
+    },
+    historySep: {
+        color: '#2a2a2a',
+        fontSize: 11,
     },
     modalOverlay: {
         flex: 1,

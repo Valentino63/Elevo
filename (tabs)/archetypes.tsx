@@ -4,62 +4,126 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
 import { archetypes, subArchetypes } from '../utils';
 
-
-
 export default function ArchetypesScreen() {
   const [saved, setSaved] = useState(false);
   const [selectedArchetype, setSelectedArchetype] = useState<string | null>(null);
   const [selectedSubArchetype, setSelectedSubArchetype] = useState<string | null>(null);
   const [subSaved, setSubSaved] = useState(false);
+  const [selectedSideArchetypes, setSelectedSideArchetypes] = useState<string[]>([]);
+  const [sideSaved, setSideSaved] = useState(false);
+
   const subs = selectedArchetype ? subArchetypes[selectedArchetype] : [];
   const hasSubArchetypes = subs.length > 0;
-
-  const saveArchetype = async (archetype: string) => {
-    await AsyncStorage.setItem('elevo_archetype', archetype);
-  };
-
-  const saveSubArchetype = async (subArchetype: string) => {
-    await AsyncStorage.setItem('elevo_subarchetype', subArchetype);
-  };
 
   useFocusEffect(
     useCallback(() => {
       const loadSaved = async () => {
-        const savedArchetype = await AsyncStorage.getItem('elevo_archetype');
-        const savedSub = await AsyncStorage.getItem('elevo_subarchetype');
+        const [savedArchetype, savedSub, savedSide] = await Promise.all([
+          AsyncStorage.getItem('elevo_archetype'),
+          AsyncStorage.getItem('elevo_subarchetype'),
+          AsyncStorage.getItem('elevo_side_archetypes'),
+        ]);
         setSelectedArchetype(savedArchetype);
         setSelectedSubArchetype(savedSub);
         setSaved(!!savedArchetype);
         setSubSaved(!!savedSub);
+        if (savedSide !== null) {
+          setSelectedSideArchetypes(JSON.parse(savedSide) as string[]);
+          setSideSaved(true);
+        } else {
+          setSideSaved(false);
+        }
       };
       loadSaved();
     }, [])
   );
 
+  const toggleSideArchetype = (name: string) => {
+    setSelectedSideArchetypes(prev => {
+      if (prev.includes(name)) return prev.filter(n => n !== name);
+      if (prev.length >= 2) return prev;
+      return [...prev, name];
+    });
+  };
 
-  if (subSaved || (saved && !hasSubArchetypes)) {
-  return (
-    <View style={styles.container}>
-      <View style={{ alignItems: 'center', marginBottom: 24 }}>
-        <Text style={styles.title}>Elevo</Text>
-        <Text style={styles.subtitle}>Path chosen</Text>
-        <Text style={styles.archetypeLabel}>{selectedArchetype}</Text>
-        {selectedSubArchetype && <Text style={styles.archetypeLabel}>{selectedSubArchetype}</Text>}
+  // Step 4: Done
+  if (sideSaved) {
+    return (
+      <View style={styles.container}>
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <Text style={styles.title}>Elevo</Text>
+          <Text style={styles.subtitle}>Path chosen</Text>
+          <Text style={styles.archetypeLabel}>{selectedArchetype}</Text>
+          {selectedSubArchetype && <Text style={styles.archetypeLabel}>{selectedSubArchetype}</Text>}
+          {selectedSideArchetypes.length > 0 && (
+            <Text style={styles.sideLabel}>+ {selectedSideArchetypes.join(' · ')}</Text>
+          )}
+        </View>
+        <TouchableOpacity
+          style={styles.confirmButton}
+          onPress={async () => {
+            await AsyncStorage.multiRemove(['elevo_archetype', 'elevo_subarchetype', 'elevo_side_archetypes']);
+            setSelectedArchetype(null);
+            setSelectedSubArchetype(null);
+            setSelectedSideArchetypes([]);
+            setSaved(false);
+            setSubSaved(false);
+            setSideSaved(false);
+          }}>
+          <Text style={styles.confirmButtonText}>Change path</Text>
+        </TouchableOpacity>
       </View>
-      <TouchableOpacity
-        style={styles.confirmButton}
-        onPress={async () => {
-          await AsyncStorage.multiRemove(['elevo_archetype', 'elevo_subarchetype']);
-          setSelectedArchetype(null);
-          setSelectedSubArchetype(null);
-          setSaved(false);
-          setSubSaved(false);
-        }}>
-        <Text style={styles.confirmButtonText}>Change path</Text>
-      </TouchableOpacity>
-    </View>
-  );
+    );
   }
+
+  // Step 3: Side archetype picker
+  if (subSaved || (saved && !hasSubArchetypes)) {
+    const sideOptions = archetypes.filter(a => a.name !== selectedArchetype);
+    return (
+      <View style={styles.container}>
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <Text style={styles.title}>Elevo</Text>
+          <Text style={styles.subtitle}>Add side paths (optional)</Text>
+          <Text style={styles.archetypeLabel}>{selectedArchetype}</Text>
+          <Text style={styles.sideHint}>Pick up to 2 · 0.9× multiplier on their tasks</Text>
+        </View>
+        <ScrollView>
+          {sideOptions.map((a) => {
+            const selected = selectedSideArchetypes.includes(a.name);
+            const maxed = !selected && selectedSideArchetypes.length >= 2;
+            return (
+              <TouchableOpacity
+                key={a.name}
+                style={[
+                  styles.archetypeBox,
+                  selected && { borderColor: '#c9a84c', borderWidth: 2 },
+                  maxed && { opacity: 0.4 },
+                ]}
+                onPress={() => { if (!maxed) toggleSideArchetype(a.name); }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.archetypeTitle}>{a.name}</Text>
+                  {selected && <Text style={styles.checkmark}>✓</Text>}
+                </View>
+                <Text style={styles.archetypeDescription}>{a.description}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        <TouchableOpacity
+          style={styles.confirmButton}
+          onPress={async () => {
+            await AsyncStorage.setItem('elevo_side_archetypes', JSON.stringify(selectedSideArchetypes));
+            setSideSaved(true);
+          }}>
+          <Text style={styles.confirmButtonText}>
+            {selectedSideArchetypes.length === 0 ? 'Skip' : `Confirm (${selectedSideArchetypes.length} selected)`}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Step 2: Sub-archetype picker
   if (saved && hasSubArchetypes && !subSaved) {
     return (
       <View style={styles.container}>
@@ -84,7 +148,10 @@ export default function ArchetypesScreen() {
         {selectedSubArchetype && (
           <TouchableOpacity
             style={styles.confirmButton}
-            onPress={() => saveSubArchetype(selectedSubArchetype).then(() => setSubSaved(true))}>
+            onPress={async () => {
+              await AsyncStorage.setItem('elevo_subarchetype', selectedSubArchetype);
+              setSubSaved(true);
+            }}>
             <Text style={styles.confirmButtonText}>Confirm — {selectedSubArchetype}</Text>
           </TouchableOpacity>
         )}
@@ -92,35 +159,34 @@ export default function ArchetypesScreen() {
     );
   }
 
+  // Step 1: Main archetype picker
   return (
     <View style={styles.container}>
       <View style={{ alignItems: 'center', marginBottom: 24 }}>
         <Text style={styles.title}>Elevo</Text>
-        <Text style={styles.subtitle}>
-          {saved ? 'Path chosen' : 'Choose your path'}
-        </Text>
-        {saved && <Text style={styles.archetypeLabel}>{selectedArchetype}{selectedSubArchetype ? ` · ${selectedSubArchetype}` : ''}</Text>}
+        <Text style={styles.subtitle}>Choose your path</Text>
       </View>
-      {!saved && (
-        <ScrollView>
-          {archetypes.map((archetype) => (
-            <TouchableOpacity
-              key={archetype.name}
-              style={[
-                styles.archetypeBox,
-                selectedArchetype === archetype.name && { borderColor: '#c9a84c', borderWidth: 2 },
-              ]}
-              onPress={() => setSelectedArchetype(archetype.name)}>
-              <Text style={styles.archetypeTitle}>{archetype.name}</Text>
-              <Text style={styles.archetypeDescription}>{archetype.description}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      )}
-      {selectedArchetype && !saved && (
+      <ScrollView>
+        {archetypes.map((archetype) => (
+          <TouchableOpacity
+            key={archetype.name}
+            style={[
+              styles.archetypeBox,
+              selectedArchetype === archetype.name && { borderColor: '#c9a84c', borderWidth: 2 },
+            ]}
+            onPress={() => setSelectedArchetype(archetype.name)}>
+            <Text style={styles.archetypeTitle}>{archetype.name}</Text>
+            <Text style={styles.archetypeDescription}>{archetype.description}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+      {selectedArchetype && (
         <TouchableOpacity
           style={styles.confirmButton}
-          onPress={() => saveArchetype(selectedArchetype).then(() => setSaved(true))}>
+          onPress={async () => {
+            await AsyncStorage.setItem('elevo_archetype', selectedArchetype);
+            setSaved(true);
+          }}>
           <Text style={styles.confirmButtonText}>Confirm — {selectedArchetype}</Text>
         </TouchableOpacity>
       )}
@@ -149,6 +215,21 @@ const styles = StyleSheet.create({
     color: '#c9a84c',
     fontSize: 14,
     marginTop: 6,
+  },
+  sideLabel: {
+    color: '#5a5650',
+    fontSize: 13,
+    marginTop: 4,
+  },
+  sideHint: {
+    color: '#5a5650',
+    fontSize: 12,
+    marginTop: 4,
+  },
+  checkmark: {
+    color: '#c9a84c',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   archetypeBox: {
     marginHorizontal: 16,
@@ -183,11 +264,5 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     paddingVertical: 12,
-  },
-  savedText: {
-    color: '#c9a84c',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
   },
 });
