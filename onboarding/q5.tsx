@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ARCHETYPES = [
@@ -15,6 +15,14 @@ const ARCHETYPES = [
     'Looksmaxer',
     'Jack of All Trades',
 ];
+
+const PRIORITY_MAP: Record<string, string[]> = {
+    'My body and health': ['Healthy Guy', 'Gymbro / Athlete', 'Looksmaxer'],
+    'My mind and knowledge': ['Scholar', 'Monk'],
+    'My business and money': ['Entrepreneur', 'Creator'],
+    'My relationships and social life': ['Social Guy', 'Family Man'],
+    'All of the above': [],
+};
 
 const SUB_ARCHETYPES: Record<string, string[]> = {
     'Healthy Guy': ['Weight Loss', 'Longevity', 'Energy Optimisation'],
@@ -34,6 +42,22 @@ export default function Q5() {
     const [archetype, setArchetype] = useState<string | null>(null);
     const [subArchetype, setSubArchetype] = useState<string | null>(null);
     const [showingSub, setShowingSub] = useState(false);
+    const [recommended, setRecommended] = useState<string[]>([]);
+    const [sortedArchetypes, setSortedArchetypes] = useState(ARCHETYPES);
+
+    useEffect(() => {
+        AsyncStorage.getItem('elevo_q1').then(q1 => {
+            if (!q1) return;
+            const recs = PRIORITY_MAP[q1] ?? [];
+            setRecommended(recs);
+            if (recs.length > 0) {
+                setSortedArchetypes([
+                    ...ARCHETYPES.filter(a => recs.includes(a)),
+                    ...ARCHETYPES.filter(a => !recs.includes(a)),
+                ]);
+            }
+        });
+    }, []);
 
     const subs = archetype ? SUB_ARCHETYPES[archetype] ?? [] : [];
 
@@ -94,12 +118,17 @@ export default function Q5() {
             </View>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
                 <Text style={styles.question}>Which path feels most like you?</Text>
-                {ARCHETYPES.map((name) => (
+                {sortedArchetypes.map((name) => (
                     <TouchableOpacity
                         key={name}
                         style={[styles.option, archetype === name && styles.optionSelected]}
                         onPress={() => setArchetype(name)}>
-                        <Text style={styles.optionText}>{name}</Text>
+                        <View style={styles.optionRow}>
+                            <Text style={styles.optionText}>{name}</Text>
+                            {recommended.includes(name) && (
+                                <Text style={styles.badge}>Recommended</Text>
+                            )}
+                        </View>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -145,7 +174,9 @@ const styles = StyleSheet.create({
         marginBottom: 10,
     },
     optionSelected: { borderColor: '#c9a84c', borderWidth: 2 },
+    optionRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
     optionText: { color: '#e8e0cc', fontSize: 15 },
+    badge: { color: '#c9a84c', fontSize: 11, fontWeight: 'bold', opacity: 0.8 },
     button: {
         marginHorizontal: 24,
         marginTop: 8,

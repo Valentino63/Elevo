@@ -15,12 +15,21 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
 
   useEffect(() => {
     const minDelay = new Promise(resolve => setTimeout(resolve, 1600));
-    const dataLoad = AsyncStorage.getItem('elevo_xp');
-    Promise.all([minDelay, dataLoad]).finally(() => setReady(true));
+    const dataLoad = AsyncStorage.getItem('elevo_onboarding_done');
+    Promise.all([minDelay, dataLoad])
+      .then(([, onboardingDone]) => {
+        if (!onboardingDone) setNeedsOnboarding(true);
+      })
+      .finally(() => setReady(true));
   }, []);
+
+  useEffect(() => {
+    if (ready && needsOnboarding) router.replace('/onboarding/welcome');
+  }, [ready, needsOnboarding]);
 
   if (!ready) return <LoadingScreen />;
 

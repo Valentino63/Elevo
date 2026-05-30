@@ -12,6 +12,7 @@ import {
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getXpForLevel, getMultiplier } from '../utils';
 
 type ExerciseType = 'reps' | 'time';
 type Exercise = {
@@ -245,9 +246,49 @@ export default function WorkoutScreen() {
         setHistory(newHistory);
         await AsyncStorage.setItem('elevo_workout_history', JSON.stringify(newHistory));
 
+        const ACTIVITY = 'Training (weights/calisthenics/plyometrics)';
+        const [rawXp, rawLevel, rawArchetype, rawSubArchetype, rawSideArchetypes, rawLoggedToday] =
+            await Promise.all([
+                AsyncStorage.getItem('elevo_xp'),
+                AsyncStorage.getItem('elevo_level'),
+                AsyncStorage.getItem('elevo_archetype'),
+                AsyncStorage.getItem('elevo_subarchetype'),
+                AsyncStorage.getItem('elevo_side_archetypes'),
+                AsyncStorage.getItem('elevo_logged_today'),
+            ]);
+
+        const currentXp = parseFloat(rawXp ?? '0') || 0;
+        const currentLevel = parseInt(rawLevel ?? '1') || 1;
+        const archetype = rawArchetype ?? null;
+        const subArchetype = rawSubArchetype ?? null;
+        const sideArchetypes: string[] = rawSideArchetypes ? JSON.parse(rawSideArchetypes) : [];
+        const loggedToday: string[] = rawLoggedToday ? JSON.parse(rawLoggedToday) : [];
+
+        const baseXp = 150 + prCount * 50;
+        const multiplier = getMultiplier(ACTIVITY, archetype, subArchetype, [], sideArchetypes);
+        const xpEarned = Math.round(baseXp * multiplier);
+
+        let newXp = currentXp + xpEarned;
+        let newLevel = currentLevel;
+        while (newXp >= getXpForLevel(newLevel + 1)) {
+            newXp -= getXpForLevel(newLevel + 1);
+            newLevel += 1;
+        }
+        const finalXp = Math.round(newXp / 5) * 5;
+
+        const newLoggedToday = loggedToday.includes(ACTIVITY) ? loggedToday : [...loggedToday, ACTIVITY];
+
+        await Promise.all([
+            AsyncStorage.setItem('elevo_xp', String(finalXp)),
+            AsyncStorage.setItem('elevo_level', String(newLevel)),
+            AsyncStorage.setItem('elevo_logged_today', JSON.stringify(newLoggedToday)),
+        ]);
+
+        const levelUpMsg = newLevel > currentLevel ? `\nLevel up! → ${newLevel}` : '';
+        const prMsg = prCount > 0 ? `${prCount} PR${prCount > 1 ? 's' : ''}  •  ` : '';
         Alert.alert(
             'Workout Complete!',
-            prCount > 0 ? `🏆 ${prCount} PR${prCount > 1 ? 's' : ''}!` : 'Great work!',
+            `${prMsg}+${xpEarned} XP${levelUpMsg}`,
             [{ text: 'Nice!', onPress: () => setView('list') }]
         );
     };

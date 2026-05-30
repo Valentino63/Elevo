@@ -5,8 +5,19 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getTitle, getXpForLevel,
   categories, activityArchetypes, activityFreq,
-  getMultiplier, activityExplanations
+  getMultiplier, activityExplanations, getDailyQuote
 } from '../utils';
+
+function sortByCompletions<T extends { name: string }>(items: T[], completions: Record<string, number>): T[] {
+  return items.slice().sort((a, b) => {
+    const ca = completions[a.name] ?? 0;
+    const cb = completions[b.name] ?? 0;
+    if (ca === 0 && cb === 0) return 0;
+    if (ca === 0) return 1;
+    if (cb === 0) return -1;
+    return cb - ca;
+  });
+}
 
 export default function HomeScreen() {
   const [xp, setXp] = useState<number | null>(null);
@@ -173,17 +184,20 @@ export default function HomeScreen() {
 
   const filteredCategories = useMemo(() => categories.map(category => ({
     ...category,
-    activities: archetype
-      ? category.activities.filter(a =>
-          activityArchetypes[a.name]?.includes(archetype) ||
-          sideArchetypes.some(sa => activityArchetypes[a.name]?.includes(sa))
-        )
-      : category.activities,
-  })).filter(category => category.activities.length > 0), [archetype, sideArchetypes]);
+    activities: sortByCompletions(
+      archetype
+        ? category.activities.filter(a =>
+            activityArchetypes[a.name]?.includes(archetype) ||
+            sideArchetypes.some(sa => activityArchetypes[a.name]?.includes(sa))
+          )
+        : category.activities,
+      completions
+    ),
+  })).filter(category => category.activities.length > 0), [archetype, sideArchetypes, completions]);
 
   const xpToday = useMemo(() => loggedToday.reduce((sum, name) => sum + (earnedXp[name] ?? 0), 0), [loggedToday, earnedXp]);
   const allFilteredActivities = useMemo(() => filteredCategories.flatMap(c => c.activities), [filteredCategories]);
-  const suggestedActivities = useMemo(() => allFilteredActivities.slice(0, 8), [allFilteredActivities]);
+  const suggestedActivities = useMemo(() => sortByCompletions(allFilteredActivities, completions).slice(0, 8), [allFilteredActivities, completions]);
   const displayXpMap = useMemo(() => {
     const map: Record<string, number> = {};
     for (const activity of allFilteredActivities) {
@@ -199,6 +213,7 @@ export default function HomeScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Elevo</Text>
       </View>
+      <Text style={styles.dailyQuote}>{getDailyQuote()}</Text>
       <View style={styles.xpCounter}>
         <Text style={styles.xpText}>Level {level ?? 1}</Text>
         <View style={styles.separator} />
@@ -354,6 +369,14 @@ const styles = StyleSheet.create({
     color: '#c9a84c',
     fontSize: 24,
     fontWeight: 'bold',
+  },
+  dailyQuote: {
+    color: '#5a5650',
+    fontSize: 13,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    paddingVertical: 10,
   },
   xpCounter: {
     flexDirection: 'row',
