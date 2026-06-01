@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Modal } from 'react-native';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -19,6 +19,30 @@ function sortByCompletions<T extends { name: string }>(items: T[], completions: 
   });
 }
 
+const FULL_RAMP_LADDER = [
+  { days: 0,  task: 'At least 3L of water' },
+  { days: 0,  task: 'At least 30 min sunlight (with SPF)' },
+  { days: 0,  task: 'Sleep (7-9 hours)' },
+  { days: 3,  task: 'No phone for 60 min after waking' },
+  { days: 6,  task: 'Going for a walk' },
+  { days: 9,  task: 'Morning routine' },
+  { days: 12, task: 'Nutrient dense breakfast' },
+  { days: 15, task: 'Journal' },
+  { days: 18, task: 'Reading (15 min or 10 pages minimum)' },
+] as const;
+
+const HABIT_TO_TASKS: Record<string, string[]> = {
+  'I sleep 7-9 hours consistently':          ['Sleep (7-9 hours)'],
+  'I drink enough water daily':              ['At least 3L of water'],
+  'I get sunlight / go outside every day':   ['At least 30 min sunlight (with SPF)', 'Going for a walk'],
+  'I stay off my phone for the first hour awake': ['No phone for 60 min after waking'],
+  'I train or move my body daily':           ['Training (weights/calisthenics/plyometrics)', 'Any form of cardio'],
+  'I read or learn something every day':     ['Reading (15 min or 10 pages minimum)', 'Learning (general)'],
+  'I eat clean most days':                   ['Eating healthy (no sugar, no processed, RDIs)', 'Nutrient dense breakfast'],
+};
+
+const STARTER_SET = ['At least 3L of water', 'At least 30 min sunlight (with SPF)', 'Sleep (7-9 hours)'];
+
 export default function HomeScreen() {
   const [xp, setXp] = useState<number | null>(null);
   const [level, setLevel] = useState<number | null>(null);
@@ -35,6 +59,12 @@ export default function HomeScreen() {
   const [lifetimeXp, setLifetimeXp] = useState(0);
   const [sideArchetypes, setSideArchetypes] = useState<string[]>([]);
   const [earnedXp, setEarnedXp] = useState<Record<string, number>>({});
+  const [rampLevel, setRampLevel] = useState<string | null>(null);
+  const [existingHabits, setExistingHabits] = useState<string[]>([]);
+  const [rampStartDate, setRampStartDate] = useState<string | null>(null);
+  const [rampUnlocked, setRampUnlocked] = useState(false);
+  const [paceOverride, setPaceOverride] = useState(false);
+  const [showGraduationModal, setShowGraduationModal] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -42,7 +72,8 @@ export default function HomeScreen() {
         const [
           savedXp, savedLevel, savedStreak, savedLastLogDate, savedArchetype,
           savedSubArchetype, savedLoggedToday, savedCompletions, savedNewTaskStarts, savedLifetimeXp,
-          savedSideArchetypes, savedEarnedXp,
+          savedSideArchetypes, savedEarnedXp, savedRampLevel, savedExistingHabits,
+          savedRampStartDate, savedRampUnlocked, savedPaceOverride,
         ] = await Promise.all([
           AsyncStorage.getItem('elevo_xp'),
           AsyncStorage.getItem('elevo_level'),
@@ -56,6 +87,11 @@ export default function HomeScreen() {
           AsyncStorage.getItem('elevo_lifetime_xp'),
           AsyncStorage.getItem('elevo_side_archetypes'),
           AsyncStorage.getItem('elevo_earned_xp'),
+          AsyncStorage.getItem('elevo_ramp_level'),
+          AsyncStorage.getItem('elevo_existing_habits'),
+          AsyncStorage.getItem('elevo_ramp_start_date'),
+          AsyncStorage.getItem('elevo_ramp_unlocked'),
+          AsyncStorage.getItem('elevo_pace_override'),
         ]);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -76,10 +112,23 @@ export default function HomeScreen() {
         if (savedLifetimeXp) setLifetimeXp(Number(savedLifetimeXp));
         setSideArchetypes(savedSideArchetypes ? JSON.parse(savedSideArchetypes) : []);
         setEarnedXp(savedLastLogDate === today && savedEarnedXp ? JSON.parse(savedEarnedXp) : {});
+        setRampLevel(savedRampLevel ?? null);
+        setExistingHabits(savedExistingHabits ? JSON.parse(savedExistingHabits) : []);
+        setRampStartDate(savedRampStartDate ?? null);
+        setRampUnlocked(savedRampUnlocked === 'true');
+        setPaceOverride(savedPaceOverride === 'true');
       };
       loadData();
     }, [])
   );
+
+  useEffect(() => {
+    if (level !== null && level >= 10 && !rampUnlocked) {
+      setRampUnlocked(true);
+      setShowGraduationModal(true);
+      AsyncStorage.setItem('elevo_ramp_unlocked', 'true');
+    }
+  }, [level, rampUnlocked]);
 
   const handleLogActivity = useCallback(async (amount: number, activityName: string) => {
     if (loggedToday.includes(activityName)) return;
@@ -195,8 +244,52 @@ export default function HomeScreen() {
     ),
   })).filter(category => category.activities.length > 0), [archetype, sideArchetypes, completions]);
 
+  const rampFilteredCategories = useMemo(() => {
+    if (rampUnlocked || rampLevel === 'skip' || !rampLevel) return filteredCategories;
+
+    if (rampLevel === 'full') {
+      const startDate = rampStartDate ? new Date(rampStartDate) : new Date();
+      const daysElapsed = Math.floor((Date.now() - startDate.getTime()) / 86400000);
+      const visible = new Set<string>();
+      for (const { days, task } of FULL_RAMP_LADDER) {
+        if (paceOverride || daysElapsed >= days) visible.add(task);
+      }
+      return filteredCategories.map(cat => ({
+        ...cat,
+        activities: cat.activities.filter(a => visible.has(a.name)),
+      })).filter(cat => cat.activities.length > 0);
+    }
+
+    if (rampLevel === 'mid') {
+      const excluded = new Set<string>();
+      for (const habit of existingHabits) {
+        for (const task of HABIT_TO_TASKS[habit] ?? []) {
+          excluded.add(task);
+        }
+      }
+      const applyExclusion = (exc: Set<string>) => filteredCategories.map(cat => ({
+        ...cat,
+        activities: cat.activities.filter(a => !exc.has(a.name)),
+      })).filter(cat => cat.activities.length > 0);
+
+      let filtered = applyExclusion(excluded);
+      const visibleCount = filtered.reduce((sum, cat) => sum + cat.activities.length, 0);
+
+      if (visibleCount < 3) {
+        for (const name of STARTER_SET) {
+          excluded.delete(name);
+          filtered = applyExclusion(excluded);
+          if (filtered.reduce((s, c) => s + c.activities.length, 0) >= 3) break;
+        }
+      }
+      return filtered;
+    }
+
+    return filteredCategories;
+  }, [filteredCategories, rampLevel, rampUnlocked, rampStartDate, existingHabits, paceOverride]);
+
   const xpToday = useMemo(() => loggedToday.reduce((sum, name) => sum + (earnedXp[name] ?? 0), 0), [loggedToday, earnedXp]);
-  const allFilteredActivities = useMemo(() => filteredCategories.flatMap(c => c.activities), [filteredCategories]);
+  const allFilteredActivities = useMemo(() => rampFilteredCategories.flatMap(c => c.activities), [rampFilteredCategories]);
   const suggestedActivities = useMemo(() => sortByCompletions(allFilteredActivities, completions).slice(0, 8), [allFilteredActivities, completions]);
   const displayXpMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -292,7 +385,7 @@ export default function HomeScreen() {
           </>
         ) : (
           <>
-            {filteredCategories.map((category) => (
+            {rampFilteredCategories.map((category) => (
               <View key={category.title}>
                 <Text style={styles.categoryHeader}>{category.title.toUpperCase()}</Text>
                 {category.activities.map((activity) => {
@@ -349,6 +442,28 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+      <Modal
+        visible={showGraduationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowGraduationModal(false)}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowGraduationModal(false)}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modalCard}>
+            <Text style={styles.graduationBadge}>🏅</Text>
+            <Text style={styles.modalTitle}>Level 10 — Graduated.</Text>
+            <View style={styles.modalDivider} />
+            <Text style={styles.modalBody}>
+              You've built the foundation. The full task library is now unlocked — every activity available to your archetype is yours to pick from.{'\n\n'}Streaks, XP multipliers, archetypes — they're all still here. This is just the beginning.
+            </Text>
+            <TouchableOpacity onPress={() => setShowGraduationModal(false)} style={styles.modalClose}>
+              <Text style={styles.modalCloseText}>Let's go</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
@@ -382,7 +497,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     paddingBottom: 10,
-    paddingTop: 10,     
+    paddingTop: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -583,5 +698,10 @@ const styles = StyleSheet.create({
   modalCloseText: {
     color: '#c9a84c',
     fontSize: 14,
+  },
+  graduationBadge: {
+    fontSize: 40,
+    textAlign: 'center',
+    marginBottom: 12,
   },
 });
