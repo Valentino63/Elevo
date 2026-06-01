@@ -16,20 +16,23 @@ export default function Q1() {
     const [selected, setSelected] = useState<string | null>(null);
 
     const handleContinue = async () => {
-        await AsyncStorage.setItem('elevo_q1', selected!);
+        await AsyncStorage.setItem('elevo_focus', selected!);
         router.push('/onboarding/q2');
     };
 
     return (
         <View style={styles.container}>
             <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Step 2 of 9</Text>
+                <Text style={styles.progressText}>Step 3 of 11</Text>
                 <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: '22%' }]} />
+                    <View style={[styles.progressFill, { width: '27%' }]} />
                 </View>
             </View>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
                 <Text style={styles.question}>What is your main focus right now?</Text>
+                <Text style={styles.subtitle}>
+                    This shapes which tasks and archetypes we surface for you.
+                </Text>
                 {OPTIONS.map((option) => (
                     <TouchableOpacity
                         key={option}
@@ -63,8 +66,14 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         color: '#e8e0cc',
-        marginBottom: 24,
+        marginBottom: 8,
         lineHeight: 28,
+    },
+    subtitle: {
+        fontSize: 13,
+        color: '#5a5650',
+        marginBottom: 24,
+        lineHeight: 20,
     },
     option: {
         backgroundColor: '#0f0f0f',

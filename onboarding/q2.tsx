@@ -1,9 +1,9 @@
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const NONE = 'None of these yet — I\'m starting fresh';
+const NONE = "None of these yet — I'm starting fresh";
 
 const OPTIONS = [
     'I sleep 7-9 hours consistently',
@@ -36,45 +36,19 @@ export default function Q2() {
     const handleContinue = async () => {
         const habits = selected.filter(o => o !== NONE);
         const count = habits.length;
-
         let rampLevel: string;
         if (count <= 1) {
             rampLevel = 'full';
         } else if (count <= 4) {
             rampLevel = 'mid';
         } else {
-            Alert.alert(
-                'Solid foundation.',
-                "You're already building solid habits — want to jump straight to the full task list?",
-                [
-                    {
-                        text: 'No, start guided',
-                        onPress: async () => {
-                            await save(habits, 'mid');
-                            router.push('/onboarding/q3');
-                        },
-                    },
-                    {
-                        text: 'Yes, jump in',
-                        onPress: async () => {
-                            await save(habits, 'skip');
-                            router.push('/onboarding/q3');
-                        },
-                    },
-                ]
-            );
-            return;
+            rampLevel = 'skip';
         }
-
-        await save(habits, rampLevel);
-        router.push('/onboarding/q3');
-    };
-
-    const save = async (habits: string[], rampLevel: string) => {
         await Promise.all([
             AsyncStorage.setItem('elevo_existing_habits', JSON.stringify(habits)),
             AsyncStorage.setItem('elevo_ramp_level', rampLevel),
         ]);
+        router.push('/onboarding/q3');
     };
 
     const canContinue = selected.length > 0;
@@ -82,9 +56,9 @@ export default function Q2() {
     return (
         <View style={styles.container}>
             <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Step 3 of 9</Text>
+                <Text style={styles.progressText}>Step 4 of 11</Text>
                 <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: '33%' }]} />
+                    <View style={[styles.progressFill, { width: '36%' }]} />
                 </View>
             </View>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>

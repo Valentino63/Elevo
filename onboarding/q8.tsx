@@ -12,15 +12,18 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const MIN = 100;
+const MAX = 500;
+
 export default function Q8() {
     const router = useRouter();
     const [answer, setAnswer] = useState('');
-    const isValid = answer.trim().length >= 100;
+    const trimmed = answer.trim();
+    const isValid = trimmed.length >= MIN;
 
-    const handleFinish = async () => {
-        await AsyncStorage.setItem('elevo_q8', answer.trim());
-        await AsyncStorage.setItem('elevo_onboarding_done', 'true');
-        router.replace('/(tabs)');
+    const handleContinue = async () => {
+        await AsyncStorage.setItem('elevo_q8', trimmed);
+        router.push('/onboarding/final');
     };
 
     return (
@@ -29,9 +32,9 @@ export default function Q8() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <View style={styles.container}>
                 <View style={styles.progressContainer}>
-                    <Text style={styles.progressText}>Step 9 of 9</Text>
+                    <Text style={styles.progressText}>Step 10 of 11</Text>
                     <View style={styles.progressTrack}>
-                        <View style={[styles.progressFill, { width: '100%' }]} />
+                        <View style={[styles.progressFill, { width: '91%' }]} />
                     </View>
                 </View>
                 <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
@@ -46,18 +49,20 @@ export default function Q8() {
                         placeholder="Write your vision here..."
                         placeholderTextColor="#5a5650"
                         value={answer}
-                        onChangeText={setAnswer}
+                        onChangeText={t => setAnswer(t.slice(0, MAX))}
                         multiline
                         textAlignVertical="top"
                     />
-                    <Text style={styles.charCount}>{answer.trim().length} / 100 minimum</Text>
+                    <Text style={[styles.charCount, trimmed.length > MAX - 20 && styles.charCountWarn]}>
+                        {trimmed.length} / {MAX} (minimum {MIN})
+                    </Text>
                 </ScrollView>
                 <TouchableOpacity
                     style={[styles.button, !isValid && styles.buttonDisabled]}
-                    onPress={handleFinish}
+                    onPress={handleContinue}
                     disabled={!isValid}>
                     <Text style={[styles.buttonText, !isValid && styles.buttonTextDisabled]}>
-                        Begin my journey
+                        Continue
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -103,6 +108,7 @@ const styles = StyleSheet.create({
         marginTop: 8,
         textAlign: 'right',
     },
+    charCountWarn: { color: '#c9a84c' },
     button: {
         marginHorizontal: 24,
         marginTop: 16,

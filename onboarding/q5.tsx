@@ -46,9 +46,9 @@ export default function Q5() {
     const [sortedArchetypes, setSortedArchetypes] = useState(ARCHETYPES);
 
     useEffect(() => {
-        AsyncStorage.getItem('elevo_q1').then(q1 => {
-            if (!q1) return;
-            const recs = PRIORITY_MAP[q1] ?? [];
+        AsyncStorage.getItem('elevo_focus').then(focus => {
+            if (!focus) return;
+            const recs = PRIORITY_MAP[focus] ?? [];
             setRecommended(recs);
             if (recs.length > 0) {
                 setSortedArchetypes([
@@ -79,13 +79,14 @@ export default function Q5() {
         return (
             <View style={styles.container}>
                 <View style={styles.progressContainer}>
-                    <Text style={styles.progressText}>Step 6 of 9</Text>
+                    <Text style={styles.progressText}>Step 7 of 11</Text>
                     <View style={styles.progressTrack}>
-                        <View style={[styles.progressFill, { width: '67%' }]} />
+                        <View style={[styles.progressFill, { width: '64%' }]} />
                     </View>
                 </View>
                 <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
                     <Text style={styles.question}>Narrow it down — which sub-path fits best?</Text>
+                    <Text style={styles.subtitle}>Fine-tune your path so your tasks actually match your goals.</Text>
                     <Text style={styles.archetypeLabel}>{archetype}</Text>
                     {subs.map((sub) => (
                         <TouchableOpacity
@@ -111,13 +112,16 @@ export default function Q5() {
     return (
         <View style={styles.container}>
             <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Step 6 of 9</Text>
+                <Text style={styles.progressText}>Step 7 of 11</Text>
                 <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: '67%' }]} />
+                    <View style={[styles.progressFill, { width: '64%' }]} />
                 </View>
             </View>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
                 <Text style={styles.question}>Which path feels most like you?</Text>
+                <Text style={styles.subtitle}>
+                    This determines your task library and XP multipliers.
+                </Text>
                 {sortedArchetypes.map((name) => (
                     <TouchableOpacity
                         key={name}
@@ -126,7 +130,7 @@ export default function Q5() {
                         <View style={styles.optionRow}>
                             <Text style={styles.optionText}>{name}</Text>
                             {recommended.includes(name) && (
-                                <Text style={styles.badge}>Recommended</Text>
+                                <Text style={styles.badge}>Based on your focus</Text>
                             )}
                         </View>
                     </TouchableOpacity>
@@ -158,6 +162,12 @@ const styles = StyleSheet.create({
         color: '#e8e0cc',
         marginBottom: 8,
         lineHeight: 28,
+    },
+    subtitle: {
+        fontSize: 13,
+        color: '#5a5650',
+        marginBottom: 20,
+        lineHeight: 20,
     },
     archetypeLabel: {
         color: '#c9a84c',

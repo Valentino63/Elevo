@@ -18,7 +18,7 @@ export default function Welcome() {
 
     const handleContinue = async () => {
         await AsyncStorage.setItem('elevo_username', username.trim());
-        router.push('/onboarding/q1');
+        router.push('/onboarding/dob');
     };
 
     return (
@@ -27,9 +27,9 @@ export default function Welcome() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <View style={styles.container}>
                 <View style={styles.progressContainer}>
-                    <Text style={styles.progressText}>Step 1 of 9</Text>
+                    <Text style={styles.progressText}>Step 1 of 11</Text>
                     <View style={styles.progressTrack}>
-                        <View style={[styles.progressFill, { width: '11%' }]} />
+                        <View style={[styles.progressFill, { width: '9%' }]} />
                     </View>
                 </View>
                 <View style={styles.content}>

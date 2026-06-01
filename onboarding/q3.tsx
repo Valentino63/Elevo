@@ -4,9 +4,9 @@ import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OPTIONS = [
-    '15 minutes',
     '30 minutes',
     '1 hour',
+    '2 hours',
     'As much as it takes',
 ];
 
@@ -15,20 +15,23 @@ export default function Q3() {
     const [selected, setSelected] = useState<string | null>(null);
 
     const handleContinue = async () => {
-        await AsyncStorage.setItem('elevo_q3', selected!);
+        await AsyncStorage.setItem('elevo_time_commitment', selected!);
         router.push('/onboarding/q4');
     };
 
     return (
         <View style={styles.container}>
             <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Step 4 of 9</Text>
+                <Text style={styles.progressText}>Step 5 of 11</Text>
                 <View style={styles.progressTrack}>
-                    <View style={[styles.progressFill, { width: '44%' }]} />
+                    <View style={[styles.progressFill, { width: '45%' }]} />
                 </View>
             </View>
             <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
                 <Text style={styles.question}>How much time can you commit daily?</Text>
+                <Text style={styles.subtitle}>
+                    We'll calibrate how much you're expected to do each day.
+                </Text>
                 {OPTIONS.map((option) => (
                     <TouchableOpacity
                         key={option}
@@ -62,8 +65,14 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         color: '#e8e0cc',
-        marginBottom: 24,
+        marginBottom: 8,
         lineHeight: 28,
+    },
+    subtitle: {
+        fontSize: 13,
+        color: '#5a5650',
+        marginBottom: 24,
+        lineHeight: 20,
     },
     option: {
         backgroundColor: '#0f0f0f',

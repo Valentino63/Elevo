@@ -12,13 +12,16 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const MAX = 500;
+
 export default function Q7() {
     const router = useRouter();
     const [answer, setAnswer] = useState('');
-    const isValid = answer.trim().length >= 20;
+    const trimmed = answer.trim();
+    const isValid = trimmed.length >= 20;
 
     const handleContinue = async () => {
-        await AsyncStorage.setItem('elevo_q7', answer.trim());
+        await AsyncStorage.setItem('elevo_q7', trimmed);
         router.push('/onboarding/q8');
     };
 
@@ -28,24 +31,30 @@ export default function Q7() {
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
             <View style={styles.container}>
                 <View style={styles.progressContainer}>
-                    <Text style={styles.progressText}>Step 8 of 9</Text>
+                    <Text style={styles.progressText}>Step 9 of 11</Text>
                     <View style={styles.progressTrack}>
-                        <View style={[styles.progressFill, { width: '89%' }]} />
+                        <View style={[styles.progressFill, { width: '82%' }]} />
                     </View>
                 </View>
                 <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
                     <Text style={styles.question}>
                         What does a win look like for you in the first 30 days?
                     </Text>
+                    <Text style={styles.subtitle}>
+                        A clear target in 30 days turns a direction into a destination.
+                    </Text>
                     <TextInput
                         style={styles.input}
                         placeholder="Write your answer here..."
                         placeholderTextColor="#5a5650"
                         value={answer}
-                        onChangeText={setAnswer}
+                        onChangeText={t => setAnswer(t.slice(0, MAX))}
                         multiline
                         textAlignVertical="top"
                     />
+                    <Text style={[styles.charCount, trimmed.length > MAX - 20 && styles.charCountWarn]}>
+                        {trimmed.length} / {MAX}
+                    </Text>
                 </ScrollView>
                 <TouchableOpacity
                     style={[styles.button, !isValid && styles.buttonDisabled]}
@@ -73,8 +82,14 @@ const styles = StyleSheet.create({
         fontSize: 20,
         fontWeight: 'bold',
         color: '#e8e0cc',
-        marginBottom: 24,
+        marginBottom: 8,
         lineHeight: 28,
+    },
+    subtitle: {
+        fontSize: 13,
+        color: '#5a5650',
+        marginBottom: 24,
+        lineHeight: 20,
     },
     input: {
         backgroundColor: '#0f0f0f',
@@ -87,6 +102,13 @@ const styles = StyleSheet.create({
         color: '#e8e0cc',
         minHeight: 140,
     },
+    charCount: {
+        color: '#5a5650',
+        fontSize: 12,
+        marginTop: 8,
+        textAlign: 'right',
+    },
+    charCountWarn: { color: '#c9a84c' },
     button: {
         marginHorizontal: 24,
         marginTop: 16,

@@ -1,5 +1,5 @@
-import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Modal } from 'react-native';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Modal, Animated, Easing } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -65,6 +65,15 @@ export default function HomeScreen() {
   const [rampUnlocked, setRampUnlocked] = useState(false);
   const [paceOverride, setPaceOverride] = useState(false);
   const [showGraduationModal, setShowGraduationModal] = useState(false);
+  const [showStar, setShowStar] = useState(false);
+
+  const starAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
+  const starOpacity = useRef(new Animated.Value(0)).current;
+  const xpBarScale = useRef(new Animated.Value(1)).current;
+  const xpBarContainerRef = useRef<any>(null);
+  const xpBarY = useRef<number>(0);
+  const taskViewRefs = useRef<Record<string, any>>({});
+  const taskPositions = useRef<Record<string, number>>({});
 
   useFocusEffect(
     useCallback(() => {
@@ -132,6 +141,48 @@ export default function HomeScreen() {
 
   const handleLogActivity = useCallback(async (amount: number, activityName: string) => {
     if (loggedToday.includes(activityName)) return;
+
+    const startY = taskPositions.current[activityName] ?? 400;
+    starAnim.setValue({ x: 0, y: startY });
+    starOpacity.setValue(1);
+    setShowStar(true);
+    Animated.parallel([
+      Animated.timing(starAnim.y, {
+        toValue: xpBarY.current,
+        duration: 600,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: false,
+      }),
+      Animated.sequence([
+        Animated.timing(starAnim.x, {
+          toValue: 20,
+          duration: 300,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: false,
+        }),
+        Animated.timing(starAnim.x, {
+          toValue: 0,
+          duration: 300,
+          easing: Easing.in(Easing.quad),
+          useNativeDriver: false,
+        }),
+      ]),
+      Animated.sequence([
+        Animated.delay(400),
+        Animated.timing(starOpacity, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: false,
+        }),
+      ]),
+    ]).start(() => {
+      setShowStar(false);
+      Animated.sequence([
+        Animated.timing(xpBarScale, { toValue: 1.06, duration: 100, useNativeDriver: true }),
+        Animated.timing(xpBarScale, { toValue: 1, duration: 100, useNativeDriver: true }),
+      ]).start();
+    });
+
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
 
@@ -314,9 +365,16 @@ export default function HomeScreen() {
         <View style={styles.separator} />
         <Text style={styles.xpText}>XP: {xp ?? 0}</Text>
       </View>
-      <View style={styles.xpBarContainer}>
+      <Animated.View
+        ref={xpBarContainerRef}
+        style={[styles.xpBarContainer, { transform: [{ scale: xpBarScale }] }]}
+        onLayout={() => {
+          xpBarContainerRef.current?.measureInWindow((_x: number, y: number) => {
+            xpBarY.current = y;
+          });
+        }}>
         <View style={[styles.xpBar, { width: `${xpProgress}%` }]} />
-      </View>
+      </Animated.View>
       <Text style={styles.streakCounterText}>🔥 {streak ?? 0} day streak</Text>
       <View style={styles.horizontalLine} />
       <ScrollView style={styles.todayRegion} showsVerticalScrollIndicator={false}>
@@ -357,23 +415,31 @@ export default function HomeScreen() {
               return (
                 <View
                   key={activity.name}
-                  style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}>
-                  <TouchableOpacity
-                    disabled={done}
-                    style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                    onPress={() => handleLogActivity(activity.xp, activity.name)}>
-                    <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
-                    <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
-                      {activity.name === 'Misogi' ? '+5 Levels' : `+${displayXpMap[activity.name] ?? activity.xp} XP`}
-                    </Text>
-                  </TouchableOpacity>
-                  {activityExplanations[activity.name] && (
+                  ref={(ref) => { taskViewRefs.current[activity.name] = ref; }}
+                  onLayout={() => {
+                    taskViewRefs.current[activity.name]?.measureInWindow((_x: number, y: number) => {
+                      taskPositions.current[activity.name] = y;
+                    });
+                  }}>
+                  <View
+                    style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}>
                     <TouchableOpacity
-                      onPress={() => setExplanationModal(activity.name)}
-                      style={styles.infoButton}>
-                      <Text style={styles.infoButtonText}>ⓘ</Text>
+                      disabled={done}
+                      style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                      onPress={() => handleLogActivity(activity.xp, activity.name)}>
+                      <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
+                      <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
+                        {activity.name === 'Misogi' ? '+5 Levels' : `+${displayXpMap[activity.name] ?? activity.xp} XP`}
+                      </Text>
                     </TouchableOpacity>
-                  )}
+                    {activityExplanations[activity.name] && (
+                      <TouchableOpacity
+                        onPress={() => setExplanationModal(activity.name)}
+                        style={styles.infoButton}>
+                        <Text style={styles.infoButtonText}>ⓘ</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
                 </View>
               );
             })}
@@ -393,23 +459,31 @@ export default function HomeScreen() {
                   return (
                     <View
                       key={activity.name}
-                      style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}>
-                      <TouchableOpacity
-                        disabled={done}
-                        style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                        onPress={() => handleLogActivity(activity.xp, activity.name)}>
-                        <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
-                        <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
-                          {activity.name === 'Misogi' ? '+5 Levels' : `+${displayXpMap[activity.name] ?? activity.xp} XP`}
-                        </Text>
-                      </TouchableOpacity>
-                      {activityExplanations[activity.name] && (
+                      ref={(ref) => { taskViewRefs.current[activity.name] = ref; }}
+                      onLayout={() => {
+                        taskViewRefs.current[activity.name]?.measureInWindow((_x: number, y: number) => {
+                          taskPositions.current[activity.name] = y;
+                        });
+                      }}>
+                      <View
+                        style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}>
                         <TouchableOpacity
-                          onPress={() => setExplanationModal(activity.name)}
-                          style={styles.infoButton}>
-                          <Text style={styles.infoButtonText}>ⓘ</Text>
+                          disabled={done}
+                          style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                          onPress={() => handleLogActivity(activity.xp, activity.name)}>
+                          <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
+                          <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
+                            {activity.name === 'Misogi' ? '+5 Levels' : `+${displayXpMap[activity.name] ?? activity.xp} XP`}
+                          </Text>
                         </TouchableOpacity>
-                      )}
+                        {activityExplanations[activity.name] && (
+                          <TouchableOpacity
+                            onPress={() => setExplanationModal(activity.name)}
+                            style={styles.infoButton}>
+                            <Text style={styles.infoButtonText}>ⓘ</Text>
+                          </TouchableOpacity>
+                        )}
+                      </View>
                     </View>
                   );
                 })}
@@ -464,6 +538,23 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+      {showStar && (
+        <View style={styles.starOverlay} pointerEvents="none">
+          <Animated.View
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              transform: [
+                { translateX: starAnim.x },
+                { translateY: starAnim.y },
+              ],
+              opacity: starOpacity,
+            }}>
+            <Text style={styles.starText}>✦</Text>
+          </Animated.View>
+        </View>
+      )}
     </View>
   );
 }
@@ -703,5 +794,16 @@ const styles = StyleSheet.create({
     fontSize: 40,
     textAlign: 'center',
     marginBottom: 12,
+  },
+  starOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: '100%',
+    height: '100%',
+  },
+  starText: {
+    color: '#c9a84c',
+    fontSize: 18,
   },
 });
