@@ -45,8 +45,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="archetypes"
         options={{
-          title: 'Archetypes',
-          tabBarIcon: ({ color }) => <Ionicons name="shield" size={24} color={color} />,
+          href: null,
         }}
       />
       <Tabs.Screen

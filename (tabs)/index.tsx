@@ -7,6 +7,7 @@ import {
   categories, activityArchetypes, activityFreq,
   getMultiplier, activityExplanations, getDailyQuote
 } from '../utils';
+import { ACHIEVEMENTS, buildStats, type Achievement } from '../achievements';
 
 function sortByCompletions<T extends { name: string }>(items: T[], completions: Record<string, number>): T[] {
   return items.slice().sort((a, b) => {
@@ -66,14 +67,25 @@ export default function HomeScreen() {
   const [paceOverride, setPaceOverride] = useState(false);
   const [showGraduationModal, setShowGraduationModal] = useState(false);
   const [showStar, setShowStar] = useState(false);
+  const [levelingUp, setLevelingUp] = useState(false);
 
+  // Achievement notification queue — sequential display
+  const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
+
+  // Shooting-star animation refs
   const starAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
   const starOpacity = useRef(new Animated.Value(0)).current;
-  const xpBarScale = useRef(new Animated.Value(1)).current;
   const xpBarContainerRef = useRef<any>(null);
   const xpBarY = useRef<number>(0);
   const taskViewRefs = useRef<Record<string, any>>({});
   const taskPositions = useRef<Record<string, number>>({});
+
+  // XP bar animation refs (all useNativeDriver: false — width cannot use native driver)
+  const xpBarWidthAnim = useRef(new Animated.Value(0)).current;
+  const xpBarScale = useRef(new Animated.Value(1)).current;
+  const xpBarShake = useRef(new Animated.Value(0)).current;
+  const levelUpFlash = useRef(new Animated.Value(0)).current;
+  const levelUpTextAnim = useRef(new Animated.Value(0)).current;
 
   useFocusEffect(
     useCallback(() => {
@@ -83,6 +95,7 @@ export default function HomeScreen() {
           savedSubArchetype, savedLoggedToday, savedCompletions, savedNewTaskStarts, savedLifetimeXp,
           savedSideArchetypes, savedEarnedXp, savedRampLevel, savedExistingHabits,
           savedRampStartDate, savedRampUnlocked, savedPaceOverride,
+          savedAchSeeded, _savedAchUnlocked, savedWorkoutHistory,
         ] = await Promise.all([
           AsyncStorage.getItem('elevo_xp'),
           AsyncStorage.getItem('elevo_level'),
@@ -101,11 +114,19 @@ export default function HomeScreen() {
           AsyncStorage.getItem('elevo_ramp_start_date'),
           AsyncStorage.getItem('elevo_ramp_unlocked'),
           AsyncStorage.getItem('elevo_pace_override'),
+          AsyncStorage.getItem('elevo_achievements_seeded'),
+          AsyncStorage.getItem('elevo_unlocked_achievements'),
+          AsyncStorage.getItem('elevo_workout_history'),
         ]);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-        setXp(savedXp ? Math.round(Number(savedXp) / 5) * 5 : 0);
-        setLevel(savedLevel ? Number(savedLevel) : 1);
+        const savedXpNum = savedXp ? Math.round(Number(savedXp) / 5) * 5 : 0;
+        const savedLevelNum = savedLevel ? Number(savedLevel) : 1;
+        setXp(savedXpNum);
+        setLevel(savedLevelNum);
+        xpBarWidthAnim.setValue(
+          Math.min((savedXpNum / getXpForLevel(savedLevelNum + 1)) * 100, 100)
+        );
         setLastLogDate(savedLastLogDate);
         if (savedLastLogDate && savedLastLogDate !== today && savedLastLogDate !== yesterday) {
           setStreak(0);
@@ -126,6 +147,19 @@ export default function HomeScreen() {
         setRampStartDate(savedRampStartDate ?? null);
         setRampUnlocked(savedRampUnlocked === 'true');
         setPaceOverride(savedPaceOverride === 'true');
+
+        // First-run achievement seeding — silently unlock everything already earned
+        if (!savedAchSeeded) {
+          const history: { isPR?: boolean }[] = savedWorkoutHistory ? JSON.parse(savedWorkoutHistory) : [];
+          const comps: Record<string, number> = savedCompletions ? JSON.parse(savedCompletions) : {};
+          const streakNum = savedStreak ? Number(savedStreak) : 0;
+          const stats = buildStats(savedLevelNum, streakNum, comps, history);
+          const earnedIds = ACHIEVEMENTS.filter(a => a.check(stats)).map(a => a.id);
+          await Promise.all([
+            AsyncStorage.setItem('elevo_unlocked_achievements', JSON.stringify(earnedIds)),
+            AsyncStorage.setItem('elevo_achievements_seeded', 'true'),
+          ]);
+        }
       };
       loadData();
     }, [])
@@ -139,9 +173,30 @@ export default function HomeScreen() {
     }
   }, [level, rampUnlocked]);
 
+  // Checks for newly unlocked achievements and queues notifications
+  const checkAchievements = useCallback(async (
+    lvl: number,
+    str: number,
+    comps: Record<string, number>
+  ) => {
+    const [rawHistory, rawUnlocked] = await Promise.all([
+      AsyncStorage.getItem('elevo_workout_history'),
+      AsyncStorage.getItem('elevo_unlocked_achievements'),
+    ]);
+    const history: { isPR?: boolean }[] = rawHistory ? JSON.parse(rawHistory) : [];
+    const unlockedIds: string[] = rawUnlocked ? JSON.parse(rawUnlocked) : [];
+    const stats = buildStats(lvl, str, comps, history);
+    const newlyUnlocked = ACHIEVEMENTS.filter(a => !unlockedIds.includes(a.id) && a.check(stats));
+    if (newlyUnlocked.length === 0) return;
+    const newIds = [...unlockedIds, ...newlyUnlocked.map(a => a.id)];
+    await AsyncStorage.setItem('elevo_unlocked_achievements', JSON.stringify(newIds));
+    setAchievementQueue(prev => [...prev, ...newlyUnlocked]);
+  }, []);
+
   const handleLogActivity = useCallback(async (amount: number, activityName: string) => {
     if (loggedToday.includes(activityName)) return;
 
+    // Shooting-star animation
     const startY = taskPositions.current[activityName] ?? 400;
     starAnim.setValue({ x: 0, y: startY });
     starOpacity.setValue(1);
@@ -178,8 +233,8 @@ export default function HomeScreen() {
     ]).start(() => {
       setShowStar(false);
       Animated.sequence([
-        Animated.timing(xpBarScale, { toValue: 1.06, duration: 100, useNativeDriver: true }),
-        Animated.timing(xpBarScale, { toValue: 1, duration: 100, useNativeDriver: true }),
+        Animated.timing(xpBarScale, { toValue: 1.06, duration: 100, useNativeDriver: false }),
+        Animated.timing(xpBarScale, { toValue: 1, duration: 100, useNativeDriver: false }),
       ]).start();
     });
 
@@ -223,6 +278,7 @@ export default function HomeScreen() {
       setXp(newXp);
       setLifetimeXp(newLifetimeXp);
       setEarnedXp(newEarnedXp);
+      xpBarWidthAnim.setValue(Math.min((newXp / getXpForLevel(lvl + 1)) * 100, 100));
       await Promise.all([
         AsyncStorage.setItem('elevo_streak', String(newStreak)),
         AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
@@ -233,6 +289,7 @@ export default function HomeScreen() {
         AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
         AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
       ]);
+      await checkAchievements(lvl, newStreak, newCompletions);
       return;
     }
 
@@ -250,7 +307,8 @@ export default function HomeScreen() {
     const newHabitMultiplier = isNewTask && currentCount < 5 && activityFreq[activityName] === 'Daily' ? 3 : 1;
     const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday, sideArchetypes) * newHabitMultiplier);
     let newXp = (xp ?? 0) + adjustedAmount;
-    let newLevel = level ?? 1;
+    const currentLevel = level ?? 1;
+    let newLevel = currentLevel;
     while (newXp >= getXpForLevel(newLevel + 1)) {
       newXp -= getXpForLevel(newLevel + 1);
       newLevel += 1;
@@ -258,15 +316,17 @@ export default function HomeScreen() {
     const finalXp = Math.round(newXp / 5) * 5;
     const newLifetimeXp = lifetimeXp + adjustedAmount;
     const newEarnedXp = { ...earnedXp, [activityName]: adjustedAmount };
+    const didLevelUp = newLevel > currentLevel;
+    const newProgressPct = Math.min((finalXp / getXpForLevel(newLevel + 1)) * 100, 100);
+
     setStreak(newStreak);
     setLastLogDate(newLastLogDate);
     setLoggedToday(newLoggedToday);
     setCompletions(newCompletions);
     setNewTaskStarts(updatedTaskStarts);
-    setLevel(newLevel);
-    setXp(finalXp);
     setLifetimeXp(newLifetimeXp);
     setEarnedXp(newEarnedXp);
+
     await Promise.all([
       AsyncStorage.setItem('elevo_streak', String(newStreak)),
       AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
@@ -278,9 +338,67 @@ export default function HomeScreen() {
       AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
       AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
     ]);
-  }, [loggedToday, lastLogDate, streak, completions, level, xp, lifetimeXp, newTaskStarts, archetype, subArchetype, sideArchetypes, earnedXp]);
 
-  const xpProgress = Math.min(((xp ?? 0) / getXpForLevel((level ?? 1) + 1)) * 100, 100);
+    // Check achievements after saves (uses newLevel so level-up achievements fire correctly)
+    await checkAchievements(newLevel, newStreak, newCompletions);
+
+    if (!didLevelUp) {
+      setLevel(newLevel);
+      setXp(finalXp);
+      Animated.timing(xpBarWidthAnim, {
+        toValue: newProgressPct,
+        duration: 300,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }).start();
+      return;
+    }
+
+    // Level-up animation sequence
+    setXp(finalXp);
+    setLevelingUp(true);
+
+    levelUpTextAnim.setValue(0);
+    Animated.timing(levelUpTextAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
+
+    Animated.sequence([
+      Animated.timing(xpBarWidthAnim, { toValue: 100, duration: 300, useNativeDriver: false }),
+      Animated.parallel([
+        Animated.sequence([
+          Animated.timing(xpBarShake, { toValue: 6,  duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: -6, duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: 6,  duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: -6, duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: 6,  duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: -6, duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: 6,  duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: -6, duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: 6,  duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: -6, duration: 30, useNativeDriver: false }),
+          Animated.timing(xpBarShake, { toValue: 0,  duration: 0,  useNativeDriver: false }),
+        ]),
+        Animated.sequence([
+          Animated.timing(xpBarScale, { toValue: 1.08, duration: 150, useNativeDriver: false }),
+          Animated.timing(xpBarScale, { toValue: 1,    duration: 150, useNativeDriver: false }),
+        ]),
+        Animated.sequence([
+          Animated.timing(levelUpFlash, { toValue: 0.4, duration: 150, useNativeDriver: false }),
+          Animated.timing(levelUpFlash, { toValue: 0,   duration: 150, useNativeDriver: false }),
+        ]),
+      ]),
+    ]).start(() => {
+      setLevel(newLevel);
+      Animated.timing(xpBarWidthAnim, {
+        toValue: newProgressPct,
+        duration: 500,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }).start();
+      Animated.timing(levelUpTextAnim, { toValue: 0, duration: 300, useNativeDriver: false }).start(() => {
+        setLevelingUp(false);
+      });
+    });
+  }, [loggedToday, lastLogDate, streak, completions, level, xp, lifetimeXp, newTaskStarts, archetype, subArchetype, sideArchetypes, earnedXp, checkAchievements]);
 
   const filteredCategories = useMemo(() => categories.map(category => ({
     ...category,
@@ -352,6 +470,11 @@ export default function HomeScreen() {
     return map;
   }, [allFilteredActivities, archetype, subArchetype, loggedToday, sideArchetypes]);
 
+  const currentAchievement = achievementQueue[0] ?? null;
+  const dismissAchievement = useCallback(() => {
+    setAchievementQueue(prev => prev.slice(1));
+  }, []);
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -365,16 +488,42 @@ export default function HomeScreen() {
         <View style={styles.separator} />
         <Text style={styles.xpText}>XP: {xp ?? 0}</Text>
       </View>
-      <Animated.View
-        ref={xpBarContainerRef}
-        style={[styles.xpBarContainer, { transform: [{ scale: xpBarScale }] }]}
-        onLayout={() => {
-          xpBarContainerRef.current?.measureInWindow((_x: number, y: number) => {
-            xpBarY.current = y;
-          });
-        }}>
-        <View style={[styles.xpBar, { width: `${xpProgress}%` }]} />
-      </Animated.View>
+
+      {/* XP bar with level-up overlay text */}
+      <View style={styles.xpBarWrapper}>
+        {levelingUp && (
+          <Animated.Text style={[styles.levelUpText, { opacity: levelUpTextAnim }]}>
+            LEVEL UP
+          </Animated.Text>
+        )}
+        <Animated.View
+          ref={xpBarContainerRef}
+          style={[
+            styles.xpBarContainer,
+            { transform: [{ translateX: xpBarShake }, { scale: xpBarScale }] },
+          ]}
+          onLayout={() => {
+            xpBarContainerRef.current?.measureInWindow((_x: number, y: number) => {
+              xpBarY.current = y;
+            });
+          }}>
+          <Animated.View
+            style={[
+              styles.xpBar,
+              {
+                width: xpBarWidthAnim.interpolate({
+                  inputRange: [0, 100],
+                  outputRange: ['0%', '100%'],
+                }),
+              },
+            ]}
+          />
+          {levelingUp && (
+            <Animated.View style={[styles.levelUpFlashOverlay, { opacity: levelUpFlash }]} />
+          )}
+        </Animated.View>
+      </View>
+
       <Text style={styles.streakCounterText}>🔥 {streak ?? 0} day streak</Text>
       <View style={styles.horizontalLine} />
       <ScrollView style={styles.todayRegion} showsVerticalScrollIndicator={false}>
@@ -495,6 +644,8 @@ export default function HomeScreen() {
           </>
         )}
       </ScrollView>
+
+      {/* Explanation modal */}
       <Modal
         visible={explanationModal !== null}
         transparent
@@ -516,6 +667,8 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Graduation modal */}
       <Modal
         visible={showGraduationModal}
         transparent
@@ -538,6 +691,32 @@ export default function HomeScreen() {
           </TouchableOpacity>
         </TouchableOpacity>
       </Modal>
+
+      {/* Achievement notification — sequential queue */}
+      <Modal
+        visible={currentAchievement !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={dismissAchievement}>
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={dismissAchievement}>
+          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.achievementCard}>
+            <Text style={styles.achievementTrophy}>🏆</Text>
+            <Text style={styles.achievementUnlockedLabel}>Achievement Unlocked</Text>
+            <Text style={styles.achievementTitle}>{currentAchievement?.title}</Text>
+            <Text style={styles.achievementDesc}>{currentAchievement?.description}</Text>
+            <TouchableOpacity onPress={dismissAchievement} style={styles.modalClose}>
+              <Text style={styles.modalCloseText}>
+                {achievementQueue.length > 1 ? `Next (${achievementQueue.length - 1} more)` : 'Nice!'}
+              </Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Shooting star overlay */}
       {showStar && (
         <View style={styles.starOverlay} pointerEvents="none">
           <Animated.View
@@ -602,9 +781,23 @@ const styles = StyleSheet.create({
     height: 16,
     backgroundColor: '#c9a84c',
   },
+  xpBarWrapper: {
+    position: 'relative',
+    marginBottom: 10,
+  },
+  levelUpText: {
+    position: 'absolute',
+    top: -18,
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: '#c9a84c',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+  },
   xpBarContainer: {
     marginHorizontal: 24,
-    marginBottom: 10,
     height: 8,
     backgroundColor: '#1e1e1e',
     borderRadius: 6,
@@ -612,6 +805,15 @@ const styles = StyleSheet.create({
   },
   xpBar: {
     height: '100%',
+    backgroundColor: '#c9a84c',
+    borderRadius: 6,
+  },
+  levelUpFlashOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: '#c9a84c',
     borderRadius: 6,
   },
@@ -794,6 +996,39 @@ const styles = StyleSheet.create({
     fontSize: 40,
     textAlign: 'center',
     marginBottom: 12,
+  },
+  achievementCard: {
+    backgroundColor: '#0f0f0f',
+    borderRadius: 16,
+    padding: 24,
+    borderWidth: 2,
+    borderColor: '#c9a84c',
+    width: '100%',
+    alignItems: 'center',
+  },
+  achievementTrophy: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  achievementUnlockedLabel: {
+    color: '#c9a84c',
+    fontSize: 11,
+    fontWeight: 'bold',
+    letterSpacing: 2,
+    marginBottom: 10,
+  },
+  achievementTitle: {
+    color: '#e8e0cc',
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  achievementDesc: {
+    color: '#5a5650',
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
   },
   starOverlay: {
     position: 'absolute',

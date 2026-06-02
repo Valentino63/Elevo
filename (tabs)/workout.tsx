@@ -31,6 +31,7 @@ type WorkoutSession = {
     id: string;
     templateName: string;
     date: string;
+    isPR: boolean;
     exercises: { name: string; sets: HistorySet[] }[];
 };
 type BuilderExercise = {
@@ -57,6 +58,20 @@ function bestVolume(history: WorkoutSession[], exerciseName: string): number {
     return best;
 }
 
+function bestDuration(history: WorkoutSession[], exerciseName: string): number {
+    let best = 0;
+    for (const s of history) {
+        for (const ex of s.exercises) {
+            if (ex.name === exerciseName) {
+                for (const set of ex.sets) {
+                    best = Math.max(best, set.duration ?? 0);
+                }
+            }
+        }
+    }
+    return best;
+}
+
 export default function WorkoutScreen() {
     const [view, setView] = useState<'list' | 'builder' | 'workout'>('list');
     const [templates, setTemplates] = useState<Template[]>([]);
@@ -69,6 +84,7 @@ export default function WorkoutScreen() {
     const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
     const [activeExercises, setActiveExercises] = useState<ActiveExercise[]>([]);
     const [bestMap, setBestMap] = useState<Record<string, number>>({});
+    const [bestTimeMap, setBestTimeMap] = useState<Record<string, number>>({});
     const [lastSessionData, setLastSessionData] = useState<Record<string, HistorySet[]>>({});
 
     useFocusEffect(
@@ -163,10 +179,13 @@ export default function WorkoutScreen() {
     const startWorkout = (template: Template) => {
         setActiveTemplate(template);
         const bm: Record<string, number> = {};
+        const btm: Record<string, number> = {};
         for (const ex of template.exercises) {
             bm[ex.name] = bestVolume(history, ex.name);
+            if ((ex.type ?? 'reps') === 'time') btm[ex.name] = bestDuration(history, ex.name);
         }
         setBestMap(bm);
+        setBestTimeMap(btm);
         const lastSession = [...history].reverse().find(s => s.templateName === template.name);
         const lsd: Record<string, HistorySet[]> = {};
         if (lastSession) {
@@ -203,10 +222,9 @@ export default function WorkoutScreen() {
     };
 
     const isPR = (exName: string, weight: string, reps: string): boolean => {
-        const best = bestMap[exName] ?? 0;
-        if (best === 0) return false;
         const vol = parseFloat(weight) * parseInt(reps);
-        return vol > 0 && vol > best;
+        if (vol <= 0) return false;
+        return vol > (bestMap[exName] ?? 0); // best === 0 means first ever lift → PR
     };
 
     const finishWorkout = async () => {
@@ -227,6 +245,7 @@ export default function WorkoutScreen() {
                     })),
                 });
                 if (ex.type === 'reps' && doneSets.some(s => isPR(ex.name, s.weight, s.reps))) prCount++;
+                if (ex.type === 'time' && doneSets.some(s => (parseInt(s.duration) || 0) > (bestTimeMap[ex.name] ?? 0))) prCount++;
             }
         }
 
@@ -239,6 +258,7 @@ export default function WorkoutScreen() {
             id: Date.now().toString(),
             templateName: activeTemplate.name,
             date: new Date().toISOString(),
+            isPR: prCount > 0,
             exercises: sessionExercises,
         };
 

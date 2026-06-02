@@ -1,10 +1,12 @@
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { getTitle, getXpForLevel } from '../utils';
+import { ACHIEVEMENTS } from '../achievements';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [level, setLevel] = useState(1);
   const [xp, setXp] = useState(0);
@@ -15,6 +17,7 @@ export default function ProfileScreen() {
   const [joinDate, setJoinDate] = useState('');
   const [lifetimeXp, setLifetimeXp] = useState(0);
   const [sideArchetypes, setSideArchetypes] = useState<string[]>([]);
+  const [unlockedCount, setUnlockedCount] = useState(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -22,6 +25,7 @@ export default function ProfileScreen() {
         const [
           savedUsername, savedLevel, savedXp, savedArchetype, savedSubArchetype,
           savedStreak, savedCompletions, savedLifetimeXp, rawJoinDate, savedSide,
+          savedUnlocked,
         ] = await Promise.all([
           AsyncStorage.getItem('elevo_username'),
           AsyncStorage.getItem('elevo_level'),
@@ -33,6 +37,7 @@ export default function ProfileScreen() {
           AsyncStorage.getItem('elevo_lifetime_xp'),
           AsyncStorage.getItem('elevo_join_date'),
           AsyncStorage.getItem('elevo_side_archetypes'),
+          AsyncStorage.getItem('elevo_unlocked_achievements'),
         ]);
 
         let savedJoinDate = rawJoinDate;
@@ -51,6 +56,8 @@ export default function ProfileScreen() {
         setJoinDate(savedJoinDate);
         setLifetimeXp(savedLifetimeXp ? Number(savedLifetimeXp) : 0);
         setSideArchetypes(savedSide ? JSON.parse(savedSide) : []);
+        const ids: string[] = savedUnlocked ? JSON.parse(savedUnlocked) : [];
+        setUnlockedCount(ACHIEVEMENTS.filter(a => ids.includes(a.id)).length);
       };
       loadData();
     }, [])
@@ -136,6 +143,15 @@ export default function ProfileScreen() {
           <Text style={styles.cardSub}>logged total</Text>
         </View>
       </View>
+
+      {/* Achievements row */}
+      <TouchableOpacity style={styles.achievementsRow} onPress={() => router.push('/achievements')}>
+        <View>
+          <Text style={styles.achievementsLabel}>Achievements</Text>
+          <Text style={styles.achievementsSub}>{unlockedCount} of {ACHIEVEMENTS.length} unlocked</Text>
+        </View>
+        <Text style={styles.chevron}>›</Text>
+      </TouchableOpacity>
 
       {/* Most consistent habit */}
       {mostLoggedTask && (
@@ -274,5 +290,31 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 4,
+  },
+  achievementsRow: {
+    backgroundColor: '#0f0f0f',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#1e1e1e',
+    marginBottom: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  achievementsLabel: {
+    color: '#e8e0cc',
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  achievementsSub: {
+    color: '#5a5650',
+    fontSize: 12,
+  },
+  chevron: {
+    color: '#c9a84c',
+    fontSize: 22,
   },
 });
