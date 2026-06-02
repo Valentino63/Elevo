@@ -41,6 +41,7 @@ export default function RootLayout() {
           <Stack.Screen name="onboarding" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
           <Stack.Screen name="achievements" options={{ headerShown: false }} />
+          <Stack.Screen name="calendar" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

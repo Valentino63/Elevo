@@ -1,6 +1,7 @@
 import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Modal, Animated, Easing } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getTitle, getXpForLevel,
@@ -71,6 +72,8 @@ export default function HomeScreen() {
 
   // Achievement notification queue — sequential display
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
+
+  const router = useRouter();
 
   // Shooting-star animation refs
   const starAnim = useRef(new Animated.ValueXY({ x: 0, y: 0 })).current;
@@ -279,6 +282,9 @@ export default function HomeScreen() {
       setLifetimeXp(newLifetimeXp);
       setEarnedXp(newEarnedXp);
       xpBarWidthAnim.setValue(Math.min((newXp / getXpForLevel(lvl + 1)) * 100, 100));
+      const rawDailyXpM = await AsyncStorage.getItem('elevo_daily_xp');
+      const dailyXpMapM: Record<string, number> = rawDailyXpM ? JSON.parse(rawDailyXpM) : {};
+      dailyXpMapM[today] = (dailyXpMapM[today] ?? 0) + misogiGained;
       await Promise.all([
         AsyncStorage.setItem('elevo_streak', String(newStreak)),
         AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
@@ -288,6 +294,7 @@ export default function HomeScreen() {
         AsyncStorage.setItem('elevo_xp', String(newXp)),
         AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
         AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
+        AsyncStorage.setItem('elevo_daily_xp', JSON.stringify(dailyXpMapM)),
       ]);
       await checkAchievements(lvl, newStreak, newCompletions);
       return;
@@ -327,6 +334,9 @@ export default function HomeScreen() {
     setLifetimeXp(newLifetimeXp);
     setEarnedXp(newEarnedXp);
 
+    const rawDailyXp = await AsyncStorage.getItem('elevo_daily_xp');
+    const dailyXpMap: Record<string, number> = rawDailyXp ? JSON.parse(rawDailyXp) : {};
+    dailyXpMap[today] = (dailyXpMap[today] ?? 0) + adjustedAmount;
     await Promise.all([
       AsyncStorage.setItem('elevo_streak', String(newStreak)),
       AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
@@ -337,6 +347,7 @@ export default function HomeScreen() {
       AsyncStorage.setItem('elevo_xp', String(finalXp)),
       AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
       AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
+      AsyncStorage.setItem('elevo_daily_xp', JSON.stringify(dailyXpMap)),
     ]);
 
     // Check achievements after saves (uses newLevel so level-up achievements fire correctly)
@@ -524,7 +535,12 @@ export default function HomeScreen() {
         </Animated.View>
       </View>
 
-      <Text style={styles.streakCounterText}>🔥 {streak ?? 0} day streak</Text>
+      <View style={styles.streakRow}>
+        <Text style={styles.streakCounterText}>🔥 {streak ?? 0} day streak</Text>
+        <TouchableOpacity onPress={() => router.push('/calendar')} style={styles.calendarBtn}>
+          <Ionicons name="calendar-outline" size={18} color="#5a5650" />
+        </TouchableOpacity>
+      </View>
       <View style={styles.horizontalLine} />
       <ScrollView style={styles.todayRegion} showsVerticalScrollIndicator={false}>
         {loggedToday.length > 0 ? (
@@ -869,12 +885,20 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: 6,
   },
+  streakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingBottom: 6,
+    gap: 10,
+  },
   streakCounterText: {
     color: '#FF6B35',
     fontSize: 14,
     fontWeight: 'bold',
-    textAlign: 'center',
-    paddingBottom: 6,
+  },
+  calendarBtn: {
+    padding: 4,
   },
   todaySection: {
     marginHorizontal: 24,
