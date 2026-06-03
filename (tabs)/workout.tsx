@@ -12,7 +12,9 @@ import {
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getXpForLevel, getMultiplier } from '../utils';
+import { getMultiplier } from '../utils';
+import { awardXp, checkAchievements } from '../xpEngine';
+import type { Achievement } from '../achievements';
 
 type ExerciseType = 'reps' | 'time';
 type Exercise = {
@@ -267,48 +269,32 @@ export default function WorkoutScreen() {
         await AsyncStorage.setItem('elevo_workout_history', JSON.stringify(newHistory));
 
         const ACTIVITY = 'Training (weights/calisthenics/plyometrics)';
-        const [rawXp, rawLevel, rawArchetype, rawSubArchetype, rawSideArchetypes, rawLoggedToday] =
-            await Promise.all([
-                AsyncStorage.getItem('elevo_xp'),
-                AsyncStorage.getItem('elevo_level'),
-                AsyncStorage.getItem('elevo_archetype'),
-                AsyncStorage.getItem('elevo_subarchetype'),
-                AsyncStorage.getItem('elevo_side_archetypes'),
-                AsyncStorage.getItem('elevo_logged_today'),
-            ]);
 
-        const currentXp = parseFloat(rawXp ?? '0') || 0;
-        const currentLevel = parseInt(rawLevel ?? '1') || 1;
+        // Read archetype for multiplier; everything else is owned by awardXp
+        const [rawArchetype, rawSubArchetype, rawSideArchetypes] = await Promise.all([
+            AsyncStorage.getItem('elevo_archetype'),
+            AsyncStorage.getItem('elevo_subarchetype'),
+            AsyncStorage.getItem('elevo_side_archetypes'),
+        ]);
         const archetype = rawArchetype ?? null;
         const subArchetype = rawSubArchetype ?? null;
         const sideArchetypes: string[] = rawSideArchetypes ? JSON.parse(rawSideArchetypes) : [];
-        const loggedToday: string[] = rawLoggedToday ? JSON.parse(rawLoggedToday) : [];
 
         const baseXp = 150 + prCount * 50;
-        const multiplier = getMultiplier(ACTIVITY, archetype, subArchetype, [], sideArchetypes);
-        const xpEarned = Math.round(baseXp * multiplier);
+        // No 3x new-habit bonus for workouts — workout XP uses its own formula
+        const xpEarned = Math.round(baseXp * getMultiplier(ACTIVITY, archetype, subArchetype, [], sideArchetypes));
 
-        let newXp = currentXp + xpEarned;
-        let newLevel = currentLevel;
-        while (newXp >= getXpForLevel(newLevel + 1)) {
-            newXp -= getXpForLevel(newLevel + 1);
-            newLevel += 1;
-        }
-        const finalXp = Math.round(newXp / 5) * 5;
+        const r = await awardXp(xpEarned, ACTIVITY);
 
-        const newLoggedToday = loggedToday.includes(ACTIVITY) ? loggedToday : [...loggedToday, ACTIVITY];
-
-        await Promise.all([
-            AsyncStorage.setItem('elevo_xp', String(finalXp)),
-            AsyncStorage.setItem('elevo_level', String(newLevel)),
-            AsyncStorage.setItem('elevo_logged_today', JSON.stringify(newLoggedToday)),
-        ]);
-
-        const levelUpMsg = newLevel > currentLevel ? `\nLevel up! → ${newLevel}` : '';
+        const newlyUnlocked: Achievement[] = await checkAchievements(r.newLevel, r.newStreak, r.newCompletions);
+        const levelUpMsg = r.didLevelUp ? `\nLevel up! → ${r.newLevel}` : '';
         const prMsg = prCount > 0 ? `${prCount} PR${prCount > 1 ? 's' : ''}  •  ` : '';
+        const achievementMsg = newlyUnlocked.length > 0
+            ? `\n🏆 ${newlyUnlocked.map(a => a.title).join(', ')}`
+            : '';
         Alert.alert(
             'Workout Complete!',
-            `${prMsg}+${xpEarned} XP${levelUpMsg}`,
+            `${prMsg}+${xpEarned} XP${levelUpMsg}${achievementMsg}`,
             [{ text: 'Nice!', onPress: () => setView('list') }]
         );
     };

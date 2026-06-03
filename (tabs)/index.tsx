@@ -9,6 +9,7 @@ import {
   getMultiplier, activityExplanations, getDailyQuote
 } from '../utils';
 import { ACHIEVEMENTS, buildStats, type Achievement } from '../achievements';
+import { awardXp, checkAchievements as checkAchievementsEngine } from '../xpEngine';
 
 function sortByCompletions<T extends { name: string }>(items: T[], completions: Record<string, number>): T[] {
   return items.slice().sort((a, b) => {
@@ -176,24 +177,11 @@ export default function HomeScreen() {
     }
   }, [level, rampUnlocked]);
 
-  // Checks for newly unlocked achievements and queues notifications
-  const checkAchievements = useCallback(async (
-    lvl: number,
-    str: number,
-    comps: Record<string, number>
+  const runAchievementCheck = useCallback(async (
+    lvl: number, str: number, comps: Record<string, number>
   ) => {
-    const [rawHistory, rawUnlocked] = await Promise.all([
-      AsyncStorage.getItem('elevo_workout_history'),
-      AsyncStorage.getItem('elevo_unlocked_achievements'),
-    ]);
-    const history: { isPR?: boolean }[] = rawHistory ? JSON.parse(rawHistory) : [];
-    const unlockedIds: string[] = rawUnlocked ? JSON.parse(rawUnlocked) : [];
-    const stats = buildStats(lvl, str, comps, history);
-    const newlyUnlocked = ACHIEVEMENTS.filter(a => !unlockedIds.includes(a.id) && a.check(stats));
-    if (newlyUnlocked.length === 0) return;
-    const newIds = [...unlockedIds, ...newlyUnlocked.map(a => a.id)];
-    await AsyncStorage.setItem('elevo_unlocked_achievements', JSON.stringify(newIds));
-    setAchievementQueue(prev => [...prev, ...newlyUnlocked]);
+    const newly = await checkAchievementsEngine(lvl, str, comps);
+    if (newly.length > 0) setAchievementQueue(prev => [...prev, ...newly]);
   }, []);
 
   const handleLogActivity = useCallback(async (amount: number, activityName: string) => {
@@ -242,65 +230,30 @@ export default function HomeScreen() {
     });
 
     const today = new Date().toISOString().split('T')[0];
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-
-    let newStreak = streak ?? 0;
-    let newLastLogDate = lastLogDate;
-    let newLoggedToday: string[];
-    if (lastLogDate !== today) {
-      newStreak = lastLogDate === yesterday ? (streak ?? 0) + 1 : 1;
-      newLastLogDate = today;
-      newLoggedToday = [activityName];
-    } else {
-      newLoggedToday = [...loggedToday, activityName];
-    }
-
     const currentCount = completions[activityName] ?? 0;
-    const newCompletions = { ...completions, [activityName]: currentCount + 1 };
 
+    // Misogi: gains XP equal to the next 5 level thresholds, handled by shared engine
     if (activityName === 'Misogi') {
-      let lvl = level ?? 1;
-      let currentXp = xp ?? 0;
       let misogiGained = 0;
-      for (let i = 0; i < 5; i++) {
-        misogiGained += getXpForLevel(lvl + i + 1);
-        currentXp += getXpForLevel(lvl + i + 1);
-      }
-      while (currentXp >= getXpForLevel(lvl + 1)) {
-        currentXp -= getXpForLevel(lvl + 1);
-        lvl += 1;
-      }
-      const newXp = Math.round(currentXp / 5) * 5;
-      const newLifetimeXp = lifetimeXp + misogiGained;
+      for (let i = 0; i < 5; i++) misogiGained += getXpForLevel((level ?? 1) + i + 1);
+
+      const r = await awardXp(misogiGained, 'Misogi');
       const newEarnedXp = { ...earnedXp, Misogi: misogiGained };
-      setStreak(newStreak);
-      setLastLogDate(newLastLogDate);
-      setLoggedToday(newLoggedToday);
-      setCompletions(newCompletions);
-      setLevel(lvl);
-      setXp(newXp);
-      setLifetimeXp(newLifetimeXp);
       setEarnedXp(newEarnedXp);
-      xpBarWidthAnim.setValue(Math.min((newXp / getXpForLevel(lvl + 1)) * 100, 100));
-      const rawDailyXpM = await AsyncStorage.getItem('elevo_daily_xp');
-      const dailyXpMapM: Record<string, number> = rawDailyXpM ? JSON.parse(rawDailyXpM) : {};
-      dailyXpMapM[today] = (dailyXpMapM[today] ?? 0) + misogiGained;
-      await Promise.all([
-        AsyncStorage.setItem('elevo_streak', String(newStreak)),
-        AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
-        AsyncStorage.setItem('elevo_logged_today', JSON.stringify(newLoggedToday)),
-        AsyncStorage.setItem('elevo_completions', JSON.stringify(newCompletions)),
-        AsyncStorage.setItem('elevo_level', String(lvl)),
-        AsyncStorage.setItem('elevo_xp', String(newXp)),
-        AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
-        AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
-        AsyncStorage.setItem('elevo_daily_xp', JSON.stringify(dailyXpMapM)),
-      ]);
-      await checkAchievements(lvl, newStreak, newCompletions);
+      setStreak(r.newStreak);
+      setLastLogDate(today);
+      setLoggedToday(r.newLoggedToday);
+      setCompletions(r.newCompletions);
+      setLevel(r.newLevel);
+      setXp(r.newXp);
+      setLifetimeXp(r.newLifetimeXp);
+      xpBarWidthAnim.setValue(Math.min((r.newXp / getXpForLevel(r.newLevel + 1)) * 100, 100));
+      await AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp));
+      await runAchievementCheck(r.newLevel, r.newStreak, r.newCompletions);
       return;
     }
 
-    const effectiveLoggedToday = lastLogDate !== today ? [] : loggedToday;
+    // New-habit 3x bonus — Home-screen task logging only, not workout finishes
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     let updatedTaskStarts = newTaskStarts;
     if (currentCount === 0 && activityFreq[activityName] === 'Daily' && !newTaskStarts[activityName]) {
@@ -312,50 +265,40 @@ export default function HomeScreen() {
     const taskStartDate = updatedTaskStarts[activityName];
     const isNewTask = taskStartDate != null && taskStartDate >= thirtyDaysAgo;
     const newHabitMultiplier = isNewTask && currentCount < 5 && activityFreq[activityName] === 'Daily' ? 3 : 1;
-    const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday, sideArchetypes) * newHabitMultiplier);
-    let newXp = (xp ?? 0) + adjustedAmount;
-    const currentLevel = level ?? 1;
-    let newLevel = currentLevel;
-    while (newXp >= getXpForLevel(newLevel + 1)) {
-      newXp -= getXpForLevel(newLevel + 1);
-      newLevel += 1;
-    }
-    const finalXp = Math.round(newXp / 5) * 5;
-    const newLifetimeXp = lifetimeXp + adjustedAmount;
+    // loggedToday from state is already day-reset by useFocusEffect
+    const adjustedAmount = Math.round(
+      amount * getMultiplier(activityName, archetype, subArchetype, loggedToday, sideArchetypes) * newHabitMultiplier
+    );
+
+    // Shared engine: handles XP, level, streak, completions, lifetime XP, daily XP, logged-today
+    const r = await awardXp(adjustedAmount, activityName);
+
+    // Home-screen extras: per-activity XP display + new-habit task starts
     const newEarnedXp = { ...earnedXp, [activityName]: adjustedAmount };
-    const didLevelUp = newLevel > currentLevel;
-    const newProgressPct = Math.min((finalXp / getXpForLevel(newLevel + 1)) * 100, 100);
-
-    setStreak(newStreak);
-    setLastLogDate(newLastLogDate);
-    setLoggedToday(newLoggedToday);
-    setCompletions(newCompletions);
-    setNewTaskStarts(updatedTaskStarts);
-    setLifetimeXp(newLifetimeXp);
     setEarnedXp(newEarnedXp);
-
-    const rawDailyXp = await AsyncStorage.getItem('elevo_daily_xp');
-    const dailyXpMap: Record<string, number> = rawDailyXp ? JSON.parse(rawDailyXp) : {};
-    dailyXpMap[today] = (dailyXpMap[today] ?? 0) + adjustedAmount;
-    await Promise.all([
-      AsyncStorage.setItem('elevo_streak', String(newStreak)),
-      AsyncStorage.setItem('elevo_last_log_date', newLastLogDate ?? ''),
-      AsyncStorage.setItem('elevo_logged_today', JSON.stringify(newLoggedToday)),
-      AsyncStorage.setItem('elevo_completions', JSON.stringify(newCompletions)),
-      AsyncStorage.setItem('elevo_new_task_starts', JSON.stringify(updatedTaskStarts)),
-      AsyncStorage.setItem('elevo_level', String(newLevel)),
-      AsyncStorage.setItem('elevo_xp', String(finalXp)),
-      AsyncStorage.setItem('elevo_lifetime_xp', String(newLifetimeXp)),
+    setNewTaskStarts(updatedTaskStarts);
+    const extraSaves: Promise<void>[] = [
       AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
-      AsyncStorage.setItem('elevo_daily_xp', JSON.stringify(dailyXpMap)),
-    ]);
+    ];
+    if (updatedTaskStarts !== newTaskStarts) {
+      extraSaves.push(AsyncStorage.setItem('elevo_new_task_starts', JSON.stringify(updatedTaskStarts)));
+    }
+    await Promise.all(extraSaves);
 
-    // Check achievements after saves (uses newLevel so level-up achievements fire correctly)
-    await checkAchievements(newLevel, newStreak, newCompletions);
+    // Sync React state from engine result
+    setStreak(r.newStreak);
+    setLastLogDate(today);
+    setLoggedToday(r.newLoggedToday);
+    setCompletions(r.newCompletions);
+    setLifetimeXp(r.newLifetimeXp);
 
-    if (!didLevelUp) {
-      setLevel(newLevel);
-      setXp(finalXp);
+    await runAchievementCheck(r.newLevel, r.newStreak, r.newCompletions);
+
+    const newProgressPct = Math.min((r.newXp / getXpForLevel(r.newLevel + 1)) * 100, 100);
+
+    if (!r.didLevelUp) {
+      setLevel(r.newLevel);
+      setXp(r.newXp);
       Animated.timing(xpBarWidthAnim, {
         toValue: newProgressPct,
         duration: 300,
@@ -366,9 +309,8 @@ export default function HomeScreen() {
     }
 
     // Level-up animation sequence
-    setXp(finalXp);
+    setXp(r.newXp);
     setLevelingUp(true);
-
     levelUpTextAnim.setValue(0);
     Animated.timing(levelUpTextAnim, { toValue: 1, duration: 200, useNativeDriver: false }).start();
 
@@ -398,7 +340,7 @@ export default function HomeScreen() {
         ]),
       ]),
     ]).start(() => {
-      setLevel(newLevel);
+      setLevel(r.newLevel);
       Animated.timing(xpBarWidthAnim, {
         toValue: newProgressPct,
         duration: 500,
@@ -409,7 +351,7 @@ export default function HomeScreen() {
         setLevelingUp(false);
       });
     });
-  }, [loggedToday, lastLogDate, streak, completions, level, xp, lifetimeXp, newTaskStarts, archetype, subArchetype, sideArchetypes, earnedXp, checkAchievements]);
+  }, [loggedToday, completions, level, newTaskStarts, archetype, subArchetype, sideArchetypes, earnedXp, runAchievementCheck]);
 
   const filteredCategories = useMemo(() => categories.map(category => ({
     ...category,
