@@ -6,6 +6,7 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import LoadingScreen from './loading';
+import { runMigrations } from './migrations';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',
@@ -19,9 +20,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     const minDelay = new Promise(resolve => setTimeout(resolve, 1600));
+    const migrations = runMigrations();
     const dataLoad = AsyncStorage.getItem('elevo_onboarding_done');
-    Promise.all([minDelay, dataLoad])
-      .then(([, onboardingDone]) => {
+    Promise.all([minDelay, migrations, dataLoad])
+      .then(([, , onboardingDone]) => {
         if (!onboardingDone) setNeedsOnboarding(true);
       })
       .finally(() => setReady(true));

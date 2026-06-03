@@ -50,7 +50,6 @@ export default function HomeScreen() {
   const [xp, setXp] = useState<number | null>(null);
   const [level, setLevel] = useState<number | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
-  const [lastLogDate, setLastLogDate] = useState<string | null>(null);
   const [archetype, setArchetype] = useState<string | null>(null);
   const [subArchetype, setSubArchetype] = useState<string | null>(null);
   const title = getTitle(level ?? 1);
@@ -59,7 +58,6 @@ export default function HomeScreen() {
   const [newTaskStarts, setNewTaskStarts] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState(false);
   const [explanationModal, setExplanationModal] = useState<string | null>(null);
-  const [lifetimeXp, setLifetimeXp] = useState(0);
   const [sideArchetypes, setSideArchetypes] = useState<string[]>([]);
   const [earnedXp, setEarnedXp] = useState<Record<string, number>>({});
   const [rampLevel, setRampLevel] = useState<string | null>(null);
@@ -96,7 +94,7 @@ export default function HomeScreen() {
       const loadData = async () => {
         const [
           savedXp, savedLevel, savedStreak, savedLastLogDate, savedArchetype,
-          savedSubArchetype, savedLoggedToday, savedCompletions, savedNewTaskStarts, savedLifetimeXp,
+          savedSubArchetype, savedLoggedToday, savedCompletions, savedNewTaskStarts,
           savedSideArchetypes, savedEarnedXp, savedRampLevel, savedExistingHabits,
           savedRampStartDate, savedRampUnlocked, savedPaceOverride,
           savedAchSeeded, _savedAchUnlocked, savedWorkoutHistory,
@@ -110,7 +108,6 @@ export default function HomeScreen() {
           AsyncStorage.getItem('elevo_logged_today'),
           AsyncStorage.getItem('elevo_completions'),
           AsyncStorage.getItem('elevo_new_task_starts'),
-          AsyncStorage.getItem('elevo_lifetime_xp'),
           AsyncStorage.getItem('elevo_side_archetypes'),
           AsyncStorage.getItem('elevo_earned_xp'),
           AsyncStorage.getItem('elevo_ramp_level'),
@@ -131,10 +128,8 @@ export default function HomeScreen() {
         xpBarWidthAnim.setValue(
           Math.min((savedXpNum / getXpForLevel(savedLevelNum + 1)) * 100, 100)
         );
-        setLastLogDate(savedLastLogDate);
         if (savedLastLogDate && savedLastLogDate !== today && savedLastLogDate !== yesterday) {
           setStreak(0);
-          await AsyncStorage.setItem('elevo_streak', '0');
         } else {
           setStreak(savedStreak ? Number(savedStreak) : 0);
         }
@@ -143,7 +138,6 @@ export default function HomeScreen() {
         setLoggedToday(savedLastLogDate === today && savedLoggedToday ? JSON.parse(savedLoggedToday) : []);
         if (savedCompletions) setCompletions(JSON.parse(savedCompletions));
         if (savedNewTaskStarts) setNewTaskStarts(JSON.parse(savedNewTaskStarts));
-        if (savedLifetimeXp) setLifetimeXp(Number(savedLifetimeXp));
         setSideArchetypes(savedSideArchetypes ? JSON.parse(savedSideArchetypes) : []);
         setEarnedXp(savedLastLogDate === today && savedEarnedXp ? JSON.parse(savedEarnedXp) : {});
         setRampLevel(savedRampLevel ?? null);
@@ -229,7 +223,6 @@ export default function HomeScreen() {
       ]).start();
     });
 
-    const today = new Date().toISOString().split('T')[0];
     const currentCount = completions[activityName] ?? 0;
 
     // Misogi: gains XP equal to the next 5 level thresholds, handled by shared engine
@@ -241,12 +234,10 @@ export default function HomeScreen() {
       const newEarnedXp = { ...earnedXp, Misogi: misogiGained };
       setEarnedXp(newEarnedXp);
       setStreak(r.newStreak);
-      setLastLogDate(today);
       setLoggedToday(r.newLoggedToday);
       setCompletions(r.newCompletions);
       setLevel(r.newLevel);
       setXp(r.newXp);
-      setLifetimeXp(r.newLifetimeXp);
       xpBarWidthAnim.setValue(Math.min((r.newXp / getXpForLevel(r.newLevel + 1)) * 100, 100));
       await AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp));
       await runAchievementCheck(r.newLevel, r.newStreak, r.newCompletions);
@@ -287,10 +278,8 @@ export default function HomeScreen() {
 
     // Sync React state from engine result
     setStreak(r.newStreak);
-    setLastLogDate(today);
     setLoggedToday(r.newLoggedToday);
     setCompletions(r.newCompletions);
-    setLifetimeXp(r.newLifetimeXp);
 
     await runAchievementCheck(r.newLevel, r.newStreak, r.newCompletions);
 
