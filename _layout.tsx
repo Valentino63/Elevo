@@ -6,7 +6,7 @@ import { useColorScheme } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
 import LoadingScreen from './loading';
-import { runMigrations } from './migrations';
+import { runMigrations } from '../lib/migrations';
 
 export const unstable_settings = {
   initialRouteName: '(tabs)',

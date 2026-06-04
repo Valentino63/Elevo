@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-nati
 import { useState, useCallback } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from 'expo-router';
-import { archetypes, subArchetypes } from '../utils';
+import { archetypes, subArchetypes } from '../../lib/utils';
 
 export default function ArchetypesScreen() {
   const [saved, setSaved] = useState(false);

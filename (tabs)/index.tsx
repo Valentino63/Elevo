@@ -7,14 +7,19 @@ import {
   getTitle, getXpForLevel,
   categories, activityArchetypes, activityFreq,
   getMultiplier, activityExplanations, getDailyQuote
-} from '../utils';
-import { ACHIEVEMENTS, buildStats, type Achievement } from '../achievements';
-import { awardXp } from '../xpEngine';
+} from '../../lib/utils';
+import { ACHIEVEMENTS, buildStats, type Achievement } from '../../lib/achievements';
+import { awardXp } from '../../lib/xpEngine';
+import Svg, { Circle } from 'react-native-svg';
 
-// Ring geometry — used in both component and StyleSheet
+// Ring geometry
 const RING_SIZE = 160;
 const RING_THICK = 12;
-const RING_INNER = RING_SIZE - RING_THICK * 2;
+const RING_RADIUS = RING_SIZE / 2 - RING_THICK / 2;   // 74 — radius to stroke center
+const CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;       // ~464.96
+
+// AnimatedCircle must be created at module level (not inside the component)
+const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 
 function sortByCompletions<T extends { name: string }>(items: T[], completions: Record<string, number>): T[] {
   return items.slice().sort((a, b) => {
@@ -478,22 +483,10 @@ export default function HomeScreen() {
     [showAll, allFilteredActivities, suggestedActivities, loggedToday]
   );
 
-  // Circular progress ring — cover-layer geometry (CCW rotation peels away to reveal gold).
-  //
-  // Right cover (reveals 0%→50%, filling CW from 12 o'clock):
-  //   At 0deg  the cover sits over the right-half gold (nothing visible).
-  //   Rotating CCW to -180deg moves the cover to the left half, fully exposing right gold.
-  //
-  // Left cover (reveals 50%→100%, continuing CW from 6 o'clock):
-  //   Must START at 180deg so it covers the left-half gold at 0% progress.
-  //   Rotating CCW to 0deg exposes the left gold from 6→9→12 o'clock.
-  const ringRightCoverRot = xpBarWidthAnim.interpolate({
-    inputRange: [0, 50, 100],
-    outputRange: ['0deg', '-180deg', '-180deg'],
-  });
-  const ringLeftCoverRot = xpBarWidthAnim.interpolate({
-    inputRange: [0, 50, 100],
-    outputRange: ['180deg', '180deg', '0deg'],
+  // strokeDashoffset drives ring fill: CIRCUMFERENCE = empty, 0 = full
+  const strokeDashOffsetAnim = xpBarWidthAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: [CIRCUMFERENCE, 0],
   });
 
   const renderTaskRow = (activity: { name: string; xp: number }) => {
@@ -586,33 +579,53 @@ export default function HomeScreen() {
               });
             }}>
 
+            {/* SVG ring: background + animated progress arc + level-up flash */}
+            <Svg width={RING_SIZE} height={RING_SIZE} style={styles.ringSvg}>
+              {/* Background track */}
+              <Circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                stroke="#1a1814"
+                strokeWidth={RING_THICK}
+                fill="none"
+              />
+              {/* Gold progress arc — dashoffset animates empty→full */}
+              <AnimatedCircle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                stroke="#c9a84c"
+                strokeWidth={RING_THICK}
+                fill="none"
+                strokeDasharray={CIRCUMFERENCE}
+                strokeDashoffset={strokeDashOffsetAnim}
+                strokeLinecap="round"
+              />
+              {/* Level-up gold flash — full ring, fades in/out */}
+              {levelingUp && (
+                <AnimatedCircle
+                  cx={RING_SIZE / 2}
+                  cy={RING_SIZE / 2}
+                  r={RING_RADIUS}
+                  stroke="#f5d77a"
+                  strokeWidth={RING_THICK}
+                  fill="none"
+                  strokeDasharray={CIRCUMFERENCE}
+                  strokeDashoffset={0}
+                  opacity={levelUpFlash}
+                />
+              )}
+            </Svg>
+
+            {/* Level-up text above ring */}
             {levelingUp && (
               <Animated.Text style={[styles.levelUpText, { opacity: levelUpTextAnim }]}>
                 LEVEL UP
               </Animated.Text>
             )}
 
-            {/* 1 — gray background ring */}
-            <View style={[styles.ringShape, { borderColor: '#1a1814' }]} />
-
-            {/* 2 — right half: gold fill + gray cover that rotates away */}
-            <View style={styles.ringHalfRight}>
-              <View style={[styles.ringShape, { left: -RING_SIZE / 2, borderColor: '#c9a84c' }]} />
-              <Animated.View style={[styles.ringShape, { left: -RING_SIZE / 2, borderColor: '#1a1814', transform: [{ rotate: ringRightCoverRot }] }]} />
-            </View>
-
-            {/* 3 — left half: gold fill + gray cover that rotates away */}
-            <View style={styles.ringHalfLeft}>
-              <View style={[styles.ringShape, { borderColor: '#c9a84c' }]} />
-              <Animated.View style={[styles.ringShape, { borderColor: '#1a1814', transform: [{ rotate: ringLeftCoverRot }] }]} />
-            </View>
-
-            {/* 4 — level-up gold flash overlay */}
-            {levelingUp && (
-              <Animated.View style={[styles.ringShape, { borderColor: '#f5d77a', opacity: levelUpFlash }]} />
-            )}
-
-            {/* 5 — center: level number */}
+            {/* Center: level number overlaid on SVG */}
             <View style={styles.ringCenter}>
               <Text style={styles.ringLevelNum}>{level ?? 1}</Text>
               <Text style={styles.ringLevelLabel}>LEVEL</Text>
@@ -887,38 +900,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: 16,
   },
-  ringShape: {
+  ringSvg: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    transform: [{ rotate: '-90deg' }],
+  },
+  ringCenter: {
     position: 'absolute',
     top: 0,
     left: 0,
     width: RING_SIZE,
     height: RING_SIZE,
-    borderRadius: RING_SIZE / 2,
-    borderWidth: RING_THICK,
-  },
-  ringHalfRight: {
-    position: 'absolute',
-    top: 0,
-    left: RING_SIZE / 2,
-    width: RING_SIZE / 2,
-    height: RING_SIZE,
-    overflow: 'hidden',
-  },
-  ringHalfLeft: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    width: RING_SIZE / 2,
-    height: RING_SIZE,
-    overflow: 'hidden',
-  },
-  ringCenter: {
-    position: 'absolute',
-    top: RING_THICK,
-    left: RING_THICK,
-    width: RING_INNER,
-    height: RING_INNER,
-    borderRadius: RING_INNER / 2,
     alignItems: 'center',
     justifyContent: 'center',
   },

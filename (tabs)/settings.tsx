@@ -150,7 +150,7 @@ export default function SettingsScreen() {
 
         <SectionHeader title="APPEARANCE" />
         <View style={styles.section}>
-          <SettingsRow label="Theme" value="Dark (default)" />
+          <SettingsRow label="Theme" value="Dark" />
         </View>
 
         <SectionHeader title="APP" />
@@ -208,8 +208,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#0f0f0f',
     borderRadius: 12,
     marginHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#1e1e1e',
     overflow: 'hidden',
   },
   row: {
@@ -217,8 +215,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 14,
     paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#1e1e1e',
   },
   rowLabel: {
     color: '#e8e0cc',

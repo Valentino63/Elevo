@@ -2,8 +2,9 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'rea
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { getTitle, getXpForLevel } from '../utils';
-import { ACHIEVEMENTS } from '../achievements';
+import { Ionicons } from '@expo/vector-icons';
+import { getTitle, getXpForLevel } from '../../lib/utils';
+import { ACHIEVEMENTS } from '../../lib/achievements';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -119,7 +120,10 @@ export default function ProfileScreen() {
       <View style={styles.row}>
         <View style={[styles.card, styles.halfCard]}>
           <Text style={styles.cardLabel}>STREAK</Text>
-          <Text style={styles.cardValueOrange}>🔥 {streak}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <Ionicons name="flame" size={22} color="#FF6B35" />
+            <Text style={[styles.cardValueOrange, { marginBottom: 0 }]}>{streak}</Text>
+          </View>
           <Text style={styles.cardSub}>days</Text>
         </View>
         <View style={[styles.card, styles.halfCard]}>

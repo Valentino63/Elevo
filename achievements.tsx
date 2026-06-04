@@ -2,13 +2,14 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   ACHIEVEMENTS,
   CATEGORY_ORDER,
   CATEGORY_LABELS,
   type AchievementCategory,
-} from './achievements';
+} from '../lib/achievements';
 
 export default function AchievementsScreen() {
   const router = useRouter();
@@ -56,9 +57,11 @@ export default function AchievementsScreen() {
                   key={achievement.id}
                   style={[styles.card, unlocked && styles.cardUnlocked]}>
                   <View style={styles.cardLeft}>
-                    <Text style={[styles.checkmark, unlocked ? styles.checkmarkOn : styles.checkmarkOff]}>
-                      {unlocked ? '✓' : '○'}
-                    </Text>
+                    <Ionicons
+                      name={unlocked ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={20}
+                      color={unlocked ? '#c9a84c' : '#2a2a2a'}
+                    />
                   </View>
                   <View style={styles.cardRight}>
                     <Text style={[styles.cardTitle, !unlocked && styles.dimText]}>
@@ -113,17 +116,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#0f0f0f',
     borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#1e1e1e',
     padding: 14,
     marginBottom: 8,
     gap: 12,
   },
-  cardUnlocked: { borderColor: '#c9a84c' },
+  cardUnlocked: { backgroundColor: '#1a1610' },
   cardLeft: { width: 24, alignItems: 'center' },
-  checkmark: { fontSize: 16, fontWeight: 'bold' },
-  checkmarkOn: { color: '#c9a84c' },
-  checkmarkOff: { color: '#2a2a2a' },
   cardRight: { flex: 1 },
   cardTitle: { color: '#e8e0cc', fontSize: 14, fontWeight: 'bold', marginBottom: 2 },
   cardDesc: { color: '#5a5650', fontSize: 12, lineHeight: 18 },

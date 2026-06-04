@@ -12,9 +12,9 @@ import {
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getMultiplier } from '../utils';
-import { awardXp, checkAchievements } from '../xpEngine';
-import type { Achievement } from '../achievements';
+import { getMultiplier } from '../../lib/utils';
+import { awardXp, checkAchievements } from '../../lib/xpEngine';
+import type { Achievement } from '../../lib/achievements';
 
 type ExerciseType = 'reps' | 'time';
 type Exercise = {
@@ -462,7 +462,7 @@ export default function WorkoutScreen() {
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
-                                                <Text style={styles.lastSetText}>{lastLabel}</Text>
+                                                {lastLabel !== '—' && <Text style={styles.lastSetText}>{lastLabel}</Text>}
                                             </View>
                                         );
                                     })}
@@ -496,7 +496,7 @@ export default function WorkoutScreen() {
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
-                                                <Text style={styles.lastSetText}>{lastLabel}</Text>
+                                                {lastLabel !== '—' && <Text style={styles.lastSetText}>{lastLabel}</Text>}
                                             </View>
                                         );
                                     })}
@@ -608,8 +608,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#0f0f0f',
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 10,
         padding: 16,
         marginBottom: 10,
@@ -625,8 +623,6 @@ const styles = StyleSheet.create({
         marginTop: 2,
     },
     editBtn: {
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 6,
         paddingHorizontal: 12,
         paddingVertical: 6,
@@ -637,8 +633,6 @@ const styles = StyleSheet.create({
     },
     templateNameInput: {
         backgroundColor: '#0f0f0f',
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 8,
         paddingHorizontal: 16,
         paddingVertical: 12,
@@ -655,8 +649,6 @@ const styles = StyleSheet.create({
     },
     builderExRow: {
         backgroundColor: '#0f0f0f',
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 10,
         padding: 12,
         marginBottom: 10,
@@ -676,13 +668,11 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 6,
         borderRadius: 6,
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
+        backgroundColor: '#17150f',
         alignItems: 'center',
     },
     typeBtnActive: {
-        borderColor: '#c9a84c',
-        backgroundColor: '#c9a84c1a',
+        backgroundColor: '#c9a84c',
     },
     typeBtnText: {
         color: '#5a5650',
@@ -690,12 +680,10 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
     typeBtnTextActive: {
-        color: '#c9a84c',
+        color: '#0a0a0a',
     },
     input: {
         backgroundColor: '#0a0a0a',
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 6,
         paddingHorizontal: 12,
         paddingVertical: 10,
@@ -728,8 +716,6 @@ const styles = StyleSheet.create({
     numInput: {
         width: '100%',
         backgroundColor: '#0a0a0a',
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 6,
         paddingHorizontal: 8,
         paddingVertical: 8,
@@ -738,8 +724,7 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     addExBtn: {
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
+        backgroundColor: '#0f0f0f',
         borderRadius: 8,
         paddingVertical: 12,
         alignItems: 'center',
@@ -790,16 +775,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: '#0f0f0f',
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 8,
         paddingHorizontal: 8,
         paddingVertical: 8,
-        marginBottom: 6,
+        marginBottom: 8,
         gap: 8,
     },
     setRowDone: {
-        borderColor: '#c9a84c33',
+        backgroundColor: '#121008',
     },
     setNum: {
         color: '#5a5650',
@@ -810,8 +793,6 @@ const styles = StyleSheet.create({
     },
     setInput: {
         backgroundColor: '#0a0a0a',
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 6,
         paddingHorizontal: 8,
         paddingVertical: 6,
@@ -830,14 +811,12 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        borderWidth: 2,
-        borderColor: '#2a2a2a',
+        backgroundColor: '#1a1814',
         alignItems: 'center',
         justifyContent: 'center',
     },
     doneBtnActive: {
         backgroundColor: '#c9a84c',
-        borderColor: '#c9a84c',
     },
     doneBtnText: {
         color: '#2a2a2a',
@@ -848,12 +827,11 @@ const styles = StyleSheet.create({
         color: '#0a0a0a',
     },
     prBadge: {
-        color: '#c9a84c',
+        color: '#0a0a0a',
+        backgroundColor: '#c9a84c',
         fontSize: 9,
         fontWeight: 'bold',
         letterSpacing: 0.5,
-        borderWidth: 1,
-        borderColor: '#c9a84c',
         borderRadius: 4,
         paddingHorizontal: 4,
         paddingVertical: 2,

@@ -59,7 +59,7 @@ const CATEGORIES: { title: string; records: RecordEntry[] }[] = [
 ];
 
 function formatValue(value: number | null | undefined, unit: string): string {
-    if (value == null) return '—';
+    if (value == null) return 'Not set';
     if (unit === 'seconds') {
         const m = Math.floor(value / 60);
         const s = value % 60;
@@ -324,8 +324,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         backgroundColor: '#0f0f0f',
         borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
     },
     recordName: {
         color: '#e8e0cc',
@@ -373,8 +371,6 @@ const styles = StyleSheet.create({
     modalBox: {
         backgroundColor: '#0f0f0f',
         borderRadius: 12,
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         padding: 24,
     },
     modalTitle: {
@@ -390,8 +386,6 @@ const styles = StyleSheet.create({
     },
     modalInput: {
         backgroundColor: '#0a0a0a',
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         borderRadius: 8,
         paddingHorizontal: 16,
         paddingVertical: 12,
@@ -407,8 +401,6 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 12,
         borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#2a2a2a',
         alignItems: 'center',
     },
     cancelText: {
@@ -420,8 +412,6 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 12,
         borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#5a5650',
         alignItems: 'center',
     },
     clearText: {
