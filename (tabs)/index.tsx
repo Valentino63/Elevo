@@ -9,7 +9,7 @@ import {
   getMultiplier, activityExplanations, getDailyQuote
 } from '../utils';
 import { ACHIEVEMENTS, buildStats, type Achievement } from '../achievements';
-import { awardXp, checkAchievements as checkAchievementsEngine } from '../xpEngine';
+import { awardXp } from '../xpEngine';
 
 function sortByCompletions<T extends { name: string }>(items: T[], completions: Record<string, number>): T[] {
   return items.slice().sort((a, b) => {
@@ -50,6 +50,7 @@ export default function HomeScreen() {
   const [xp, setXp] = useState<number | null>(null);
   const [level, setLevel] = useState<number | null>(null);
   const [streak, setStreak] = useState<number | null>(null);
+  const [lastLogDate, setLastLogDate] = useState<string | null>(null);
   const [archetype, setArchetype] = useState<string | null>(null);
   const [subArchetype, setSubArchetype] = useState<string | null>(null);
   const title = getTitle(level ?? 1);
@@ -128,6 +129,7 @@ export default function HomeScreen() {
         xpBarWidthAnim.setValue(
           Math.min((savedXpNum / getXpForLevel(savedLevelNum + 1)) * 100, 100)
         );
+        setLastLogDate(savedLastLogDate);
         if (savedLastLogDate && savedLastLogDate !== today && savedLastLogDate !== yesterday) {
           setStreak(0);
         } else {
@@ -171,11 +173,24 @@ export default function HomeScreen() {
     }
   }, [level, rampUnlocked]);
 
-  const runAchievementCheck = useCallback(async (
-    lvl: number, str: number, comps: Record<string, number>
+  // Checks for newly unlocked achievements and queues notifications
+  const checkAchievements = useCallback(async (
+    lvl: number,
+    str: number,
+    comps: Record<string, number>
   ) => {
-    const newly = await checkAchievementsEngine(lvl, str, comps);
-    if (newly.length > 0) setAchievementQueue(prev => [...prev, ...newly]);
+    const [rawHistory, rawUnlocked] = await Promise.all([
+      AsyncStorage.getItem('elevo_workout_history'),
+      AsyncStorage.getItem('elevo_unlocked_achievements'),
+    ]);
+    const history: { isPR?: boolean }[] = rawHistory ? JSON.parse(rawHistory) : [];
+    const unlockedIds: string[] = rawUnlocked ? JSON.parse(rawUnlocked) : [];
+    const stats = buildStats(lvl, str, comps, history);
+    const newlyUnlocked = ACHIEVEMENTS.filter(a => !unlockedIds.includes(a.id) && a.check(stats));
+    if (newlyUnlocked.length === 0) return;
+    const newIds = [...unlockedIds, ...newlyUnlocked.map(a => a.id)];
+    await AsyncStorage.setItem('elevo_unlocked_achievements', JSON.stringify(newIds));
+    setAchievementQueue(prev => [...prev, ...newlyUnlocked]);
   }, []);
 
   const handleLogActivity = useCallback(async (amount: number, activityName: string) => {
@@ -223,29 +238,28 @@ export default function HomeScreen() {
       ]).start();
     });
 
-    const currentCount = completions[activityName] ?? 0;
-
-    // Misogi: gains XP equal to the next 5 level thresholds, handled by shared engine
     if (activityName === 'Misogi') {
       let misogiGained = 0;
       for (let i = 0; i < 5; i++) misogiGained += getXpForLevel((level ?? 1) + i + 1);
-
       const r = await awardXp(misogiGained, 'Misogi');
       const newEarnedXp = { ...earnedXp, Misogi: misogiGained };
-      setEarnedXp(newEarnedXp);
+      await AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp));
       setStreak(r.newStreak);
+      setLastLogDate(new Date().toISOString().split('T')[0]);
       setLoggedToday(r.newLoggedToday);
       setCompletions(r.newCompletions);
       setLevel(r.newLevel);
       setXp(r.newXp);
+      setEarnedXp(newEarnedXp);
       xpBarWidthAnim.setValue(Math.min((r.newXp / getXpForLevel(r.newLevel + 1)) * 100, 100));
-      await AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp));
-      await runAchievementCheck(r.newLevel, r.newStreak, r.newCompletions);
+      await checkAchievements(r.newLevel, r.newStreak, r.newCompletions);
       return;
     }
 
-    // New-habit 3x bonus — Home-screen task logging only, not workout finishes
+    const today = new Date().toISOString().split('T')[0];
+    const effectiveLoggedToday = lastLogDate !== today ? [] : loggedToday;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const currentCount = completions[activityName] ?? 0;
     let updatedTaskStarts = newTaskStarts;
     if (currentCount === 0 && activityFreq[activityName] === 'Daily' && !newTaskStarts[activityName]) {
       const recentCount = Object.values(newTaskStarts).filter(d => d >= thirtyDaysAgo).length;
@@ -256,32 +270,24 @@ export default function HomeScreen() {
     const taskStartDate = updatedTaskStarts[activityName];
     const isNewTask = taskStartDate != null && taskStartDate >= thirtyDaysAgo;
     const newHabitMultiplier = isNewTask && currentCount < 5 && activityFreq[activityName] === 'Daily' ? 3 : 1;
-    // loggedToday from state is already day-reset by useFocusEffect
-    const adjustedAmount = Math.round(
-      amount * getMultiplier(activityName, archetype, subArchetype, loggedToday, sideArchetypes) * newHabitMultiplier
-    );
+    const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday, sideArchetypes) * newHabitMultiplier);
 
-    // Shared engine: handles XP, level, streak, completions, lifetime XP, daily XP, logged-today
     const r = await awardXp(adjustedAmount, activityName);
 
-    // Home-screen extras: per-activity XP display + new-habit task starts
     const newEarnedXp = { ...earnedXp, [activityName]: adjustedAmount };
-    setEarnedXp(newEarnedXp);
-    setNewTaskStarts(updatedTaskStarts);
-    const extraSaves: Promise<void>[] = [
+    await Promise.all([
+      AsyncStorage.setItem('elevo_new_task_starts', JSON.stringify(updatedTaskStarts)),
       AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp)),
-    ];
-    if (updatedTaskStarts !== newTaskStarts) {
-      extraSaves.push(AsyncStorage.setItem('elevo_new_task_starts', JSON.stringify(updatedTaskStarts)));
-    }
-    await Promise.all(extraSaves);
+    ]);
 
-    // Sync React state from engine result
     setStreak(r.newStreak);
+    setLastLogDate(today);
     setLoggedToday(r.newLoggedToday);
     setCompletions(r.newCompletions);
+    setNewTaskStarts(updatedTaskStarts);
+    setEarnedXp(newEarnedXp);
 
-    await runAchievementCheck(r.newLevel, r.newStreak, r.newCompletions);
+    await checkAchievements(r.newLevel, r.newStreak, r.newCompletions);
 
     const newProgressPct = Math.min((r.newXp / getXpForLevel(r.newLevel + 1)) * 100, 100);
 
@@ -340,7 +346,7 @@ export default function HomeScreen() {
         setLevelingUp(false);
       });
     });
-  }, [loggedToday, completions, level, newTaskStarts, archetype, subArchetype, sideArchetypes, earnedXp, runAchievementCheck]);
+  }, [loggedToday, lastLogDate, completions, level, newTaskStarts, archetype, subArchetype, sideArchetypes, earnedXp, checkAchievements]);
 
   const filteredCategories = useMemo(() => categories.map(category => ({
     ...category,
@@ -417,179 +423,164 @@ export default function HomeScreen() {
     setAchievementQueue(prev => prev.slice(1));
   }, []);
 
+  const xpForNext = getXpForLevel((level ?? 1) + 1);
+  const remainingTasks = useMemo(
+    () => (showAll ? allFilteredActivities : suggestedActivities).filter(a => !loggedToday.includes(a.name)),
+    [showAll, allFilteredActivities, suggestedActivities, loggedToday]
+  );
+
+  const renderTaskRow = (activity: { name: string; xp: number }) => {
+    const done = loggedToday.includes(activity.name);
+    if (done) return null;
+    return (
+      <View
+        key={activity.name}
+        ref={(ref) => { taskViewRefs.current[activity.name] = ref; }}
+        onLayout={() => {
+          taskViewRefs.current[activity.name]?.measureInWindow((_x: number, y: number) => {
+            taskPositions.current[activity.name] = y;
+          });
+        }}
+        style={styles.taskRow}>
+        <TouchableOpacity
+          activeOpacity={0.6}
+          style={styles.taskTap}
+          onPress={() => handleLogActivity(activity.xp, activity.name)}>
+          <View style={styles.taskAdd}>
+            <Ionicons name="add" size={18} color="#c9a84c" />
+          </View>
+          <Text style={styles.taskName} numberOfLines={1}>{activity.name}</Text>
+          <Text style={styles.taskXp}>
+            {activity.name === 'Misogi' ? '+5 LVL' : `+${displayXpMap[activity.name] ?? activity.xp}`}
+          </Text>
+        </TouchableOpacity>
+        {activityExplanations[activity.name] && (
+          <TouchableOpacity
+            onPress={() => setExplanationModal(activity.name)}
+            hitSlop={{ top: 10, bottom: 10, left: 6, right: 10 }}
+            style={styles.infoButton}>
+            <Ionicons name="information-circle-outline" size={18} color="#5a5650" />
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Elevo</Text>
-      </View>
-      <Text style={styles.dailyQuote}>{getDailyQuote()}</Text>
-      <View style={styles.xpCounter}>
-        <Text style={styles.xpText}>Level {level ?? 1}</Text>
-        <View style={styles.separator} />
-        <Text style={styles.xpText}>{title}</Text>
-        <View style={styles.separator} />
-        <Text style={styles.xpText}>XP: {xp ?? 0}</Text>
-      </View>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
 
-      {/* XP bar with level-up overlay text */}
-      <View style={styles.xpBarWrapper}>
-        {levelingUp && (
-          <Animated.Text style={[styles.levelUpText, { opacity: levelUpTextAnim }]}>
-            LEVEL UP
-          </Animated.Text>
-        )}
-        <Animated.View
-          ref={xpBarContainerRef}
-          style={[
-            styles.xpBarContainer,
-            { transform: [{ translateX: xpBarShake }, { scale: xpBarScale }] },
-          ]}
-          onLayout={() => {
-            xpBarContainerRef.current?.measureInWindow((_x: number, y: number) => {
-              xpBarY.current = y;
-            });
-          }}>
-          <Animated.View
-            style={[
-              styles.xpBar,
-              {
-                width: xpBarWidthAnim.interpolate({
-                  inputRange: [0, 100],
-                  outputRange: ['0%', '100%'],
-                }),
-              },
-            ]}
-          />
-          {levelingUp && (
-            <Animated.View style={[styles.levelUpFlashOverlay, { opacity: levelUpFlash }]} />
-          )}
-        </Animated.View>
-      </View>
+        {/* ── Hero block ───────────────────────────── */}
+        <View style={styles.hero}>
+          <View style={styles.heroTopRow}>
+            <View style={styles.streakChip}>
+              <Ionicons name="flame" size={14} color="#FF6B35" />
+              <Text style={styles.streakChipText}>{streak ?? 0}</Text>
+            </View>
+            <TouchableOpacity onPress={() => router.push('/calendar')} style={styles.calendarBtn}>
+              <Ionicons name="calendar-outline" size={20} color="#5a5650" />
+            </TouchableOpacity>
+          </View>
 
-      <View style={styles.streakRow}>
-        <Text style={styles.streakCounterText}>🔥 {streak ?? 0} day streak</Text>
-        <TouchableOpacity onPress={() => router.push('/calendar')} style={styles.calendarBtn}>
-          <Ionicons name="calendar-outline" size={18} color="#5a5650" />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.horizontalLine} />
-      <ScrollView style={styles.todayRegion} showsVerticalScrollIndicator={false}>
-        {loggedToday.length > 0 ? (
-          <View style={styles.todaySection}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <Text style={[styles.todaySectionHeader, { marginBottom: 0 }]}>
-                {loggedToday.length} action{loggedToday.length !== 1 ? 's' : ''} in. Keep going.
+          <Text style={styles.levelNum}>{level ?? 1}</Text>
+          <Text style={styles.levelLabel}>LEVEL</Text>
+          <Text style={styles.titleText}>{title}</Text>
+
+          {/* XP bar */}
+          <View style={styles.xpBarWrapper}>
+            {levelingUp && (
+              <Animated.Text style={[styles.levelUpText, { opacity: levelUpTextAnim }]}>
+                LEVEL UP
+              </Animated.Text>
+            )}
+            <Animated.View
+              ref={xpBarContainerRef}
+              style={[
+                styles.xpBarContainer,
+                { transform: [{ translateX: xpBarShake }, { scale: xpBarScale }] },
+              ]}
+              onLayout={() => {
+                xpBarContainerRef.current?.measureInWindow((_x: number, y: number) => {
+                  xpBarY.current = y;
+                });
+              }}>
+              <Animated.View
+                style={[
+                  styles.xpBar,
+                  {
+                    width: xpBarWidthAnim.interpolate({
+                      inputRange: [0, 100],
+                      outputRange: ['0%', '100%'],
+                    }),
+                  },
+                ]}
+              />
+              {levelingUp && (
+                <Animated.View style={[styles.levelUpFlashOverlay, { opacity: levelUpFlash }]} />
+              )}
+            </Animated.View>
+            <Text style={styles.xpBarLabel}>{xp ?? 0} / {xpForNext} XP</Text>
+          </View>
+        </View>
+
+        <Text style={styles.dailyQuote}>{getDailyQuote()}</Text>
+
+        {/* ── Today's momentum ─────────────────────── */}
+        {loggedToday.length > 0 && (
+          <View style={styles.todayCard}>
+            <View style={styles.todayHeader}>
+              <Text style={styles.todayHeaderText}>
+                {loggedToday.length} done today
               </Text>
-              <Text style={styles.todaySectionHeader}>+{xpToday} XP</Text>
+              <Text style={styles.todayHeaderXp}>+{xpToday} XP</Text>
             </View>
             {loggedToday.map(name => (
               <View key={name} style={styles.todayItem}>
-                <Text style={styles.todayCheck}>✓</Text>
+                <Ionicons name="checkmark" size={15} color="#c9a84c" style={{ width: 18 }} />
                 <Text style={styles.todayItemName} numberOfLines={1}>{name}</Text>
                 <Text style={styles.todayItemXp}>+{earnedXp[name] ?? 0}</Text>
               </View>
             ))}
           </View>
-        ) : (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateText}>
-              {(streak ?? 0) > 0
-                ? `🔥 ${streak} day streak — keep it alive`
-                : 'Start with one thing today.'}
+        )}
+
+        {/* ── Task list ────────────────────────────── */}
+        <View style={styles.listSection}>
+          <View style={styles.listHeaderRow}>
+            <Text style={styles.listHeader}>
+              {loggedToday.length > 0 ? 'KEEP GOING' : 'PICK ONE TO START'}
             </Text>
           </View>
-        )}
-      </ScrollView>
-      <View style={{ marginTop: 20 }} />
-      <View style={styles.horizontalLine} />
-      <View style={{ marginBottom: 20 }} />
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
-        {!showAll ? (
-          <>
-            {suggestedActivities.map((activity) => {
-              const done = loggedToday.includes(activity.name);
-              return (
-                <View
-                  key={activity.name}
-                  ref={(ref) => { taskViewRefs.current[activity.name] = ref; }}
-                  onLayout={() => {
-                    taskViewRefs.current[activity.name]?.measureInWindow((_x: number, y: number) => {
-                      taskPositions.current[activity.name] = y;
-                    });
-                  }}>
-                  <View
-                    style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}>
-                    <TouchableOpacity
-                      disabled={done}
-                      style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                      onPress={() => handleLogActivity(activity.xp, activity.name)}>
-                      <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
-                      <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
-                        {activity.name === 'Misogi' ? '+5 Levels' : `+${displayXpMap[activity.name] ?? activity.xp} XP`}
-                      </Text>
-                    </TouchableOpacity>
-                    {activityExplanations[activity.name] && (
-                      <TouchableOpacity
-                        onPress={() => setExplanationModal(activity.name)}
-                        style={styles.infoButton}>
-                        <Text style={styles.infoButtonText}>ⓘ</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                </View>
-              );
-            })}
-            {allFilteredActivities.length > 8 && (
-              <TouchableOpacity style={styles.seeAllBtn} onPress={() => setShowAll(true)}>
-                <Text style={styles.seeAllBtnText}>See all tasks</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        ) : (
-          <>
-            {rampFilteredCategories.map((category) => (
-              <View key={category.title}>
-                <Text style={styles.categoryHeader}>{category.title.toUpperCase()}</Text>
-                {category.activities.map((activity) => {
-                  const done = loggedToday.includes(activity.name);
-                  return (
-                    <View
-                      key={activity.name}
-                      ref={(ref) => { taskViewRefs.current[activity.name] = ref; }}
-                      onLayout={() => {
-                        taskViewRefs.current[activity.name]?.measureInWindow((_x: number, y: number) => {
-                          taskPositions.current[activity.name] = y;
-                        });
-                      }}>
-                      <View
-                        style={[styles.logButton, styles.logButtonMatch, done && styles.logButtonDone]}>
-                        <TouchableOpacity
-                          disabled={done}
-                          style={{ flex: 1, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                          onPress={() => handleLogActivity(activity.xp, activity.name)}>
-                          <Text style={[styles.logButtonText, done && styles.logButtonTextDone]}>{activity.name}</Text>
-                          <Text style={[styles.logButtonXp, done && styles.logButtonTextDone]}>
-                            {activity.name === 'Misogi' ? '+5 Levels' : `+${displayXpMap[activity.name] ?? activity.xp} XP`}
-                          </Text>
-                        </TouchableOpacity>
-                        {activityExplanations[activity.name] && (
-                          <TouchableOpacity
-                            onPress={() => setExplanationModal(activity.name)}
-                            style={styles.infoButton}>
-                            <Text style={styles.infoButtonText}>ⓘ</Text>
-                          </TouchableOpacity>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ))}
-            <TouchableOpacity style={styles.seeAllBtn} onPress={() => setShowAll(false)}>
-              <Text style={styles.seeAllBtnText}>See less</Text>
+
+          {remainingTasks.length === 0 ? (
+            <View style={styles.allDone}>
+              <Ionicons name="checkmark-done" size={22} color="#c9a84c" />
+              <Text style={styles.allDoneText}>
+                Everything logged. That's a day most people won't have.
+              </Text>
+            </View>
+          ) : (
+            remainingTasks.map(renderTaskRow)
+          )}
+
+          {allFilteredActivities.length > 8 && remainingTasks.length > 0 && (
+            <TouchableOpacity
+              style={styles.seeAllBtn}
+              onPress={() => setShowAll(s => !s)}>
+              <Text style={styles.seeAllBtnText}>
+                {showAll ? 'Show less' : `Show all ${allFilteredActivities.length} tasks`}
+              </Text>
+              <Ionicons
+                name={showAll ? 'chevron-up' : 'chevron-down'}
+                size={15}
+                color="#5a5650"
+              />
             </TouchableOpacity>
-          </>
-        )}
+          )}
+        </View>
       </ScrollView>
 
       {/* Explanation modal */}
@@ -626,7 +617,9 @@ export default function HomeScreen() {
           activeOpacity={1}
           onPress={() => setShowGraduationModal(false)}>
           <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modalCard}>
-            <Text style={styles.graduationBadge}>🏅</Text>
+            <View style={styles.graduationBadge}>
+              <Ionicons name="ribbon" size={34} color="#c9a84c" />
+            </View>
             <Text style={styles.modalTitle}>Level 10 — Graduated.</Text>
             <View style={styles.modalDivider} />
             <Text style={styles.modalBody}>
@@ -650,8 +643,10 @@ export default function HomeScreen() {
           activeOpacity={1}
           onPress={dismissAchievement}>
           <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.achievementCard}>
-            <Text style={styles.achievementTrophy}>🏆</Text>
-            <Text style={styles.achievementUnlockedLabel}>Achievement Unlocked</Text>
+            <View style={styles.achievementTrophy}>
+              <Ionicons name="trophy" size={32} color="#c9a84c" />
+            </View>
+            <Text style={styles.achievementUnlockedLabel}>ACHIEVEMENT UNLOCKED</Text>
             <Text style={styles.achievementTitle}>{currentAchievement?.title}</Text>
             <Text style={styles.achievementDesc}>{currentAchievement?.description}</Text>
             <TouchableOpacity onPress={dismissAchievement} style={styles.modalClose}>
@@ -690,245 +685,260 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0a0a0a',
   },
-  header: {
-    paddingTop: 40,
-    paddingBottom: 16,
+  scrollContent: {
+    paddingBottom: 40,
+  },
+
+  // ── Hero ──────────────────────────────────────
+  hero: {
+    paddingTop: 64,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: '#c9a84c',
   },
-  headerTitle: {
-    color: '#c9a84c',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  dailyQuote: {
-    color: '#5a5650',
-    fontSize: 13,
-    fontStyle: 'italic',
-    textAlign: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 10,
-  },
-  xpCounter: {
+  heroTopRow: {
     flexDirection: 'row',
-    gap: 12,
-    paddingBottom: 10,
-    paddingTop: 10,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 8,
   },
-  xpText: {
+  streakChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: '#1a1410',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+  },
+  streakChipText: {
+    color: '#FF6B35',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  calendarBtn: {
+    padding: 4,
+  },
+  levelNum: {
     color: '#e8e0cc',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 64,
+    fontWeight: '800',
+    lineHeight: 70,
+    letterSpacing: -1,
   },
-  separator: {
-    width: 2,
-    height: 16,
-    backgroundColor: '#c9a84c',
+  levelLabel: {
+    color: '#5a5650',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 3,
+    marginTop: -4,
+  },
+  titleText: {
+    color: '#c9a84c',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    marginTop: 10,
   },
   xpBarWrapper: {
+    width: '100%',
+    marginTop: 18,
     position: 'relative',
-    marginBottom: 10,
   },
   levelUpText: {
     position: 'absolute',
-    top: -18,
+    top: -16,
     left: 0,
     right: 0,
     textAlign: 'center',
     color: '#c9a84c',
-    fontSize: 11,
-    fontWeight: 'bold',
-    letterSpacing: 2,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 3,
   },
   xpBarContainer: {
-    marginHorizontal: 24,
-    height: 8,
-    backgroundColor: '#1e1e1e',
-    borderRadius: 6,
+    height: 6,
+    backgroundColor: '#17150f',
+    borderRadius: 3,
     overflow: 'hidden',
   },
   xpBar: {
     height: '100%',
     backgroundColor: '#c9a84c',
-    borderRadius: 6,
+    borderRadius: 3,
   },
   levelUpFlashOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#c9a84c',
-    borderRadius: 6,
+    top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: '#f5d77a',
+    borderRadius: 3,
   },
-  categoryHeader: {
-    color: '#c9a84c',
+  xpBarLabel: {
+    color: '#5a5650',
+    fontSize: 11,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+
+  dailyQuote: {
+    color: '#5a5650',
     fontSize: 13,
-    fontWeight: 'bold',
-    marginHorizontal: 24,
-    marginTop: 16,
-    marginBottom: 8,
-    letterSpacing: 1.5,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingHorizontal: 36,
+    marginBottom: 24,
+    lineHeight: 19,
   },
-  logButton: {
+
+  // ── Today card ────────────────────────────────
+  todayCard: {
+    marginHorizontal: 16,
+    backgroundColor: '#100f0c',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+  },
+  todayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginHorizontal: 24,
-    marginBottom: 8,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    backgroundColor: 'transparent',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
+    marginBottom: 12,
   },
-  logButtonMatch: {
-    borderColor: '#c9a84c',
-    borderWidth: 2,
-  },
-  logButtonDone: {
-    borderColor: '#2a2a2a',
-    borderWidth: 1,
-    opacity: 0.4,
-    paddingVertical: 7,
-  },
-  logButtonTextDone: {
-    color: '#5a5650',
-  },
-  logButtonText: {
-    color: '#e8e0cc',
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-    marginRight: 8,
-  },
-  logButtonXp: {
+  todayHeaderText: {
     color: '#c9a84c',
     fontSize: 13,
-    fontWeight: 'bold',
-  },
-  horizontalLine: {
-    backgroundColor: '#2a2a2a',
-    height: 1,
-    marginVertical: 6,
-  },
-  streakRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingBottom: 6,
-    gap: 10,
-  },
-  streakCounterText: {
-    color: '#FF6B35',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
-  calendarBtn: {
-    padding: 4,
-  },
-  todaySection: {
-    marginHorizontal: 24,
-    marginTop: 8,
-    marginBottom: 4,
-    backgroundColor: '#0f0f0f',
-    borderRadius: 12,
-    padding: 10,
-    borderWidth: 1,
-    borderColor: '#1e1e1e',
-  },
-  todaySectionHeader: {
-    color: '#c9a84c',
-    fontSize: 13,
-    fontWeight: 'bold',
+    fontWeight: '700',
     letterSpacing: 0.5,
+  },
+  todayHeaderXp: {
+    color: '#c9a84c',
+    fontSize: 13,
+    fontWeight: '800',
   },
   todayItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
-    gap: 8,
-  },
-  todayCheck: {
-    color: '#c9a84c',
-    fontSize: 13,
-    fontWeight: 'bold',
-    width: 16,
+    paddingVertical: 5,
   },
   todayItemName: {
-    color: '#e8e0cc',
+    color: '#9a9488',
     fontSize: 13,
     flex: 1,
   },
   todayItemXp: {
-    color: '#c9a84c',
+    color: '#6b6453',
     fontSize: 12,
+    fontWeight: '600',
   },
-  emptyState: {
-    marginHorizontal: 24,
-    marginTop: 16,
+
+  // ── Task list ─────────────────────────────────
+  listSection: {
+    paddingHorizontal: 16,
+  },
+  listHeaderRow: {
+    marginBottom: 10,
+    paddingHorizontal: 4,
+  },
+  listHeader: {
+    color: '#5a5650',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 2.5,
+  },
+  taskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#0f0f0f',
+    borderRadius: 12,
     marginBottom: 8,
-    paddingVertical: 12,
+    paddingRight: 12,
   },
-  emptyStateText: {
+  taskTap: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 15,
+    paddingLeft: 12,
+  },
+  taskAdd: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#1a1610',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  taskName: {
+    color: '#e8e0cc',
+    fontSize: 14.5,
+    fontWeight: '600',
+    flex: 1,
+    marginRight: 10,
+  },
+  taskXp: {
+    color: '#c9a84c',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  infoButton: {
+    paddingLeft: 10,
+    paddingVertical: 4,
+  },
+
+  allDone: {
+    alignItems: 'center',
+    paddingVertical: 36,
+    paddingHorizontal: 24,
+    gap: 12,
+  },
+  allDoneText: {
     color: '#5a5650',
     fontSize: 14,
     textAlign: 'center',
+    lineHeight: 20,
   },
+
   seeAllBtn: {
-    marginHorizontal: 24,
-    marginTop: 4,
-    marginBottom: 8,
-    paddingVertical: 12,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#2a2a2a',
-    borderRadius: 8,
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 14,
+    marginTop: 4,
   },
   seeAllBtnText: {
     color: '#5a5650',
-    fontSize: 14,
+    fontSize: 13,
+    fontWeight: '600',
   },
-  todayRegion: {
-    maxHeight: 160,
-  },
-  infoButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  infoButtonText: {
-    color: '#c9a84c',
-    fontSize: 16,
-  },
+
+  // ── Modals ────────────────────────────────────
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.8)',
+    backgroundColor: 'rgba(0,0,0,0.85)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 24,
   },
   modalCard: {
-    backgroundColor: '#0f0f0f',
-    borderRadius: 16,
+    backgroundColor: '#100f0c',
+    borderRadius: 18,
     padding: 24,
-    borderWidth: 1,
-    borderColor: '#c9a84c',
     width: '100%',
   },
   modalTitle: {
     color: '#c9a84c',
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 12,
+    fontSize: 16,
+    fontWeight: '700',
+    marginBottom: 14,
   },
   modalDivider: {
     height: 1,
     backgroundColor: '#1e1e1e',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   modalBody: {
     color: '#e8e0cc',
@@ -936,46 +946,48 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   modalClose: {
-    marginTop: 20,
+    marginTop: 22,
     alignItems: 'center',
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: '#c9a84c',
-    borderRadius: 8,
+    paddingVertical: 13,
+    backgroundColor: '#c9a84c',
+    borderRadius: 10,
   },
   modalCloseText: {
-    color: '#c9a84c',
+    color: '#0a0a0a',
     fontSize: 14,
+    fontWeight: '700',
   },
   graduationBadge: {
-    fontSize: 40,
-    textAlign: 'center',
-    marginBottom: 12,
+    alignSelf: 'center',
+    marginBottom: 14,
   },
   achievementCard: {
-    backgroundColor: '#0f0f0f',
-    borderRadius: 16,
-    padding: 24,
-    borderWidth: 2,
-    borderColor: '#c9a84c',
+    backgroundColor: '#100f0c',
+    borderRadius: 18,
+    padding: 28,
     width: '100%',
     alignItems: 'center',
   },
   achievementTrophy: {
-    fontSize: 40,
-    marginBottom: 8,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#1a1610',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
   },
   achievementUnlockedLabel: {
     color: '#c9a84c',
-    fontSize: 11,
-    fontWeight: 'bold',
-    letterSpacing: 2,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 2.5,
     marginBottom: 10,
   },
   achievementTitle: {
     color: '#e8e0cc',
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 21,
+    fontWeight: '800',
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -987,10 +999,8 @@ const styles = StyleSheet.create({
   },
   starOverlay: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: '100%',
+    top: 0, left: 0,
+    width: '100%', height: '100%',
   },
   starText: {
     color: '#c9a84c',
