@@ -11,6 +11,11 @@ import {
 import { ACHIEVEMENTS, buildStats, type Achievement } from '../achievements';
 import { awardXp } from '../xpEngine';
 
+// Ring geometry — used in both component and StyleSheet
+const RING_SIZE = 160;
+const RING_THICK = 12;
+const RING_INNER = RING_SIZE - RING_THICK * 2;
+
 function sortByCompletions<T extends { name: string }>(items: T[], completions: Record<string, number>): T[] {
   return items.slice().sort((a, b) => {
     const ca = completions[a.name] ?? 0;
@@ -20,6 +25,16 @@ function sortByCompletions<T extends { name: string }>(items: T[], completions: 
     if (cb === 0) return -1;
     return cb - ca;
   });
+}
+
+function fmtXp(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`;
+  return String(Math.round(n));
+}
+
+function fmtMult(m: number): string {
+  return `×${m === Math.floor(m) ? m : m.toFixed(1)}`;
 }
 
 const FULL_RAMP_LADDER = [
@@ -59,6 +74,7 @@ export default function HomeScreen() {
   const [newTaskStarts, setNewTaskStarts] = useState<Record<string, string>>({});
   const [showAll, setShowAll] = useState(false);
   const [explanationModal, setExplanationModal] = useState<string | null>(null);
+  const [lifetimeXp, setLifetimeXp] = useState(0);
   const [sideArchetypes, setSideArchetypes] = useState<string[]>([]);
   const [earnedXp, setEarnedXp] = useState<Record<string, number>>({});
   const [rampLevel, setRampLevel] = useState<string | null>(null);
@@ -69,8 +85,9 @@ export default function HomeScreen() {
   const [showGraduationModal, setShowGraduationModal] = useState(false);
   const [showStar, setShowStar] = useState(false);
   const [levelingUp, setLevelingUp] = useState(false);
+  const [username, setUsername] = useState<string | null>(null);
+  const [joinDate, setJoinDate] = useState<string | null>(null);
 
-  // Achievement notification queue — sequential display
   const [achievementQueue, setAchievementQueue] = useState<Achievement[]>([]);
 
   const router = useRouter();
@@ -80,10 +97,11 @@ export default function HomeScreen() {
   const starOpacity = useRef(new Animated.Value(0)).current;
   const xpBarContainerRef = useRef<any>(null);
   const xpBarY = useRef<number>(0);
+  const xpBarX = useRef<number>(0);
   const taskViewRefs = useRef<Record<string, any>>({});
-  const taskPositions = useRef<Record<string, number>>({});
+  const taskPositions = useRef<Record<string, { x: number; y: number }>>({});
 
-  // XP bar animation refs (all useNativeDriver: false — width cannot use native driver)
+  // Ring / XP animation refs (useNativeDriver: false — drives ring rotation + shake/scale)
   const xpBarWidthAnim = useRef(new Animated.Value(0)).current;
   const xpBarScale = useRef(new Animated.Value(1)).current;
   const xpBarShake = useRef(new Animated.Value(0)).current;
@@ -99,6 +117,7 @@ export default function HomeScreen() {
           savedSideArchetypes, savedEarnedXp, savedRampLevel, savedExistingHabits,
           savedRampStartDate, savedRampUnlocked, savedPaceOverride,
           savedAchSeeded, _savedAchUnlocked, savedWorkoutHistory,
+          savedLifetimeXp, savedUsername, savedJoinDate,
         ] = await Promise.all([
           AsyncStorage.getItem('elevo_xp'),
           AsyncStorage.getItem('elevo_level'),
@@ -119,6 +138,9 @@ export default function HomeScreen() {
           AsyncStorage.getItem('elevo_achievements_seeded'),
           AsyncStorage.getItem('elevo_unlocked_achievements'),
           AsyncStorage.getItem('elevo_workout_history'),
+          AsyncStorage.getItem('elevo_lifetime_xp'),
+          AsyncStorage.getItem('elevo_username'),
+          AsyncStorage.getItem('elevo_join_date'),
         ]);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -140,6 +162,7 @@ export default function HomeScreen() {
         setLoggedToday(savedLastLogDate === today && savedLoggedToday ? JSON.parse(savedLoggedToday) : []);
         if (savedCompletions) setCompletions(JSON.parse(savedCompletions));
         if (savedNewTaskStarts) setNewTaskStarts(JSON.parse(savedNewTaskStarts));
+        setLifetimeXp(savedLifetimeXp ? Number(savedLifetimeXp) : 0);
         setSideArchetypes(savedSideArchetypes ? JSON.parse(savedSideArchetypes) : []);
         setEarnedXp(savedLastLogDate === today && savedEarnedXp ? JSON.parse(savedEarnedXp) : {});
         setRampLevel(savedRampLevel ?? null);
@@ -147,6 +170,8 @@ export default function HomeScreen() {
         setRampStartDate(savedRampStartDate ?? null);
         setRampUnlocked(savedRampUnlocked === 'true');
         setPaceOverride(savedPaceOverride === 'true');
+        setUsername(savedUsername);
+        setJoinDate(savedJoinDate);
 
         // First-run achievement seeding — silently unlock everything already earned
         if (!savedAchSeeded) {
@@ -196,9 +221,9 @@ export default function HomeScreen() {
   const handleLogActivity = useCallback(async (amount: number, activityName: string) => {
     if (loggedToday.includes(activityName)) return;
 
-    // Shooting-star animation
-    const startY = taskPositions.current[activityName] ?? 400;
-    starAnim.setValue({ x: 0, y: startY });
+    // Shooting-star animation — flies from tapped task to ring center
+    const taskPos = taskPositions.current[activityName] ?? { x: 0, y: 400 };
+    starAnim.setValue({ x: taskPos.x, y: taskPos.y });
     starOpacity.setValue(1);
     setShowStar(true);
     Animated.parallel([
@@ -208,20 +233,12 @@ export default function HomeScreen() {
         easing: Easing.in(Easing.quad),
         useNativeDriver: false,
       }),
-      Animated.sequence([
-        Animated.timing(starAnim.x, {
-          toValue: 20,
-          duration: 300,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: false,
-        }),
-        Animated.timing(starAnim.x, {
-          toValue: 0,
-          duration: 300,
-          easing: Easing.in(Easing.quad),
-          useNativeDriver: false,
-        }),
-      ]),
+      Animated.timing(starAnim.x, {
+        toValue: xpBarX.current,
+        duration: 600,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: false,
+      }),
       Animated.sequence([
         Animated.delay(400),
         Animated.timing(starOpacity, {
@@ -250,6 +267,7 @@ export default function HomeScreen() {
       setCompletions(r.newCompletions);
       setLevel(r.newLevel);
       setXp(r.newXp);
+      setLifetimeXp(r.newLifetimeXp);
       setEarnedXp(newEarnedXp);
       xpBarWidthAnim.setValue(Math.min((r.newXp / getXpForLevel(r.newLevel + 1)) * 100, 100));
       await checkAchievements(r.newLevel, r.newStreak, r.newCompletions);
@@ -285,6 +303,7 @@ export default function HomeScreen() {
     setLoggedToday(r.newLoggedToday);
     setCompletions(r.newCompletions);
     setNewTaskStarts(updatedTaskStarts);
+    setLifetimeXp(r.newLifetimeXp);
     setEarnedXp(newEarnedXp);
 
     await checkAchievements(r.newLevel, r.newStreak, r.newCompletions);
@@ -418,6 +437,36 @@ export default function HomeScreen() {
     return map;
   }, [allFilteredActivities, archetype, subArchetype, loggedToday, sideArchetypes]);
 
+  const multiplierMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const act of allFilteredActivities) {
+      if (act.name === 'Misogi') continue;
+      map[act.name] = getMultiplier(act.name, archetype, subArchetype, loggedToday, sideArchetypes);
+    }
+    return map;
+  }, [allFilteredActivities, archetype, subArchetype, loggedToday, sideArchetypes]);
+
+  const dayN = useMemo(() => {
+    if (!joinDate) return 1;
+    const d = Math.floor((Date.now() - new Date(joinDate).getTime()) / 86400000);
+    return Math.max(1, d + 1);
+  }, [joinDate]);
+
+  const nextTitleInfo = useMemo(() => {
+    const lvl = level ?? 1;
+    const curXp = xp ?? 0;
+    let nextLevel: number; let nextTitle: string;
+    if (lvl < 10)      { nextLevel = 10; nextTitle = 'Gaining Momentum'; }
+    else if (lvl < 30) { nextLevel = 30; nextTitle = 'Locked In'; }
+    else if (lvl < 50) { nextLevel = 50; nextTitle = 'Building a New Life'; }
+    else if (lvl < 70) { nextLevel = 70; nextTitle = 'Leveled Up'; }
+    else if (lvl < 90) { nextLevel = 90; nextTitle = 'The One Who Never Quit'; }
+    else return null;
+    let total = getXpForLevel(lvl + 1) - curXp;
+    for (let l = lvl + 1; l < nextLevel; l++) total += getXpForLevel(l + 1);
+    return { xp: Math.max(0, Math.round(total)), title: nextTitle };
+  }, [level, xp]);
+
   const currentAchievement = achievementQueue[0] ?? null;
   const dismissAchievement = useCallback(() => {
     setAchievementQueue(prev => prev.slice(1));
@@ -429,16 +478,35 @@ export default function HomeScreen() {
     [showAll, allFilteredActivities, suggestedActivities, loggedToday]
   );
 
+  // Circular progress ring — cover-layer geometry (CCW rotation peels away to reveal gold).
+  //
+  // Right cover (reveals 0%→50%, filling CW from 12 o'clock):
+  //   At 0deg  the cover sits over the right-half gold (nothing visible).
+  //   Rotating CCW to -180deg moves the cover to the left half, fully exposing right gold.
+  //
+  // Left cover (reveals 50%→100%, continuing CW from 6 o'clock):
+  //   Must START at 180deg so it covers the left-half gold at 0% progress.
+  //   Rotating CCW to 0deg exposes the left gold from 6→9→12 o'clock.
+  const ringRightCoverRot = xpBarWidthAnim.interpolate({
+    inputRange: [0, 50, 100],
+    outputRange: ['0deg', '-180deg', '-180deg'],
+  });
+  const ringLeftCoverRot = xpBarWidthAnim.interpolate({
+    inputRange: [0, 50, 100],
+    outputRange: ['180deg', '180deg', '0deg'],
+  });
+
   const renderTaskRow = (activity: { name: string; xp: number }) => {
     const done = loggedToday.includes(activity.name);
     if (done) return null;
+    const mult = multiplierMap[activity.name] ?? 1;
     return (
       <View
         key={activity.name}
         ref={(ref) => { taskViewRefs.current[activity.name] = ref; }}
         onLayout={() => {
-          taskViewRefs.current[activity.name]?.measureInWindow((_x: number, y: number) => {
-            taskPositions.current[activity.name] = y;
+          taskViewRefs.current[activity.name]?.measureInWindow((x: number, y: number, w: number) => {
+            taskPositions.current[activity.name] = { x: x + w / 2, y };
           });
         }}
         style={styles.taskRow}>
@@ -450,6 +518,11 @@ export default function HomeScreen() {
             <Ionicons name="add" size={18} color="#c9a84c" />
           </View>
           <Text style={styles.taskName} numberOfLines={1}>{activity.name}</Text>
+          {mult > 1 && (
+            <View style={styles.multBadge}>
+              <Text style={styles.multBadgeText}>{fmtMult(mult)}</Text>
+            </View>
+          )}
           <Text style={styles.taskXp}>
             {activity.name === 'Misogi' ? '+5 LVL' : `+${displayXpMap[activity.name] ?? activity.xp}`}
           </Text>
@@ -473,60 +546,117 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}>
 
-        {/* ── Hero block ───────────────────────────── */}
-        <View style={styles.hero}>
-          <View style={styles.heroTopRow}>
-            <View style={styles.streakChip}>
-              <Ionicons name="flame" size={14} color="#FF6B35" />
-              <Text style={styles.streakChipText}>{streak ?? 0}</Text>
+        {/* ── Header identity row ──────────────────── */}
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarLetter}>
+                {username ? username[0].toUpperCase() : '?'}
+              </Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/calendar')} style={styles.calendarBtn}>
-              <Ionicons name="calendar-outline" size={20} color="#5a5650" />
-            </TouchableOpacity>
+            <View>
+              <Text style={styles.headerArchetype} numberOfLines={1}>
+                {archetype ?? 'Elevo'} · {title}
+              </Text>
+              <Text style={styles.headerUsername} numberOfLines={1}>
+                {username ?? 'Set username'}
+              </Text>
+            </View>
           </View>
+          <View style={styles.headerRight}>
+            <TouchableOpacity onPress={() => router.push('/calendar')} style={styles.calendarBtn}>
+              <Ionicons name="calendar-outline" size={18} color="#5a5650" />
+            </TouchableOpacity>
+            <Text style={styles.dayLabel}>DAY {dayN}</Text>
+          </View>
+        </View>
 
-          <Text style={styles.levelNum}>{level ?? 1}</Text>
-          <Text style={styles.levelLabel}>LEVEL</Text>
-          <Text style={styles.titleText}>{title}</Text>
+        {/* ── Circular progress ring ───────────────── */}
+        <View style={styles.ringSection}>
+          <Animated.View
+            ref={xpBarContainerRef}
+            style={[
+              styles.ringWrapper,
+              { transform: [{ translateX: xpBarShake }, { scale: xpBarScale }] },
+            ]}
+            onLayout={() => {
+              xpBarContainerRef.current?.measureInWindow((x: number, y: number, w: number, h: number) => {
+                xpBarX.current = x + w / 2;
+                xpBarY.current = y + h / 2;
+              });
+            }}>
 
-          {/* XP bar */}
-          <View style={styles.xpBarWrapper}>
             {levelingUp && (
               <Animated.Text style={[styles.levelUpText, { opacity: levelUpTextAnim }]}>
                 LEVEL UP
               </Animated.Text>
             )}
-            <Animated.View
-              ref={xpBarContainerRef}
-              style={[
-                styles.xpBarContainer,
-                { transform: [{ translateX: xpBarShake }, { scale: xpBarScale }] },
-              ]}
-              onLayout={() => {
-                xpBarContainerRef.current?.measureInWindow((_x: number, y: number) => {
-                  xpBarY.current = y;
-                });
-              }}>
-              <Animated.View
-                style={[
-                  styles.xpBar,
-                  {
-                    width: xpBarWidthAnim.interpolate({
-                      inputRange: [0, 100],
-                      outputRange: ['0%', '100%'],
-                    }),
-                  },
-                ]}
-              />
-              {levelingUp && (
-                <Animated.View style={[styles.levelUpFlashOverlay, { opacity: levelUpFlash }]} />
-              )}
-            </Animated.View>
-            <Text style={styles.xpBarLabel}>{xp ?? 0} / {xpForNext} XP</Text>
+
+            {/* 1 — gray background ring */}
+            <View style={[styles.ringShape, { borderColor: '#1a1814' }]} />
+
+            {/* 2 — right half: gold fill + gray cover that rotates away */}
+            <View style={styles.ringHalfRight}>
+              <View style={[styles.ringShape, { left: -RING_SIZE / 2, borderColor: '#c9a84c' }]} />
+              <Animated.View style={[styles.ringShape, { left: -RING_SIZE / 2, borderColor: '#1a1814', transform: [{ rotate: ringRightCoverRot }] }]} />
+            </View>
+
+            {/* 3 — left half: gold fill + gray cover that rotates away */}
+            <View style={styles.ringHalfLeft}>
+              <View style={[styles.ringShape, { borderColor: '#c9a84c' }]} />
+              <Animated.View style={[styles.ringShape, { borderColor: '#1a1814', transform: [{ rotate: ringLeftCoverRot }] }]} />
+            </View>
+
+            {/* 4 — level-up gold flash overlay */}
+            {levelingUp && (
+              <Animated.View style={[styles.ringShape, { borderColor: '#f5d77a', opacity: levelUpFlash }]} />
+            )}
+
+            {/* 5 — center: level number */}
+            <View style={styles.ringCenter}>
+              <Text style={styles.ringLevelNum}>{level ?? 1}</Text>
+              <Text style={styles.ringLevelLabel}>LEVEL</Text>
+            </View>
+          </Animated.View>
+
+          <Text style={styles.rankText}>RANK · {archetype ?? '—'}</Text>
+          {nextTitleInfo ? (
+            <Text style={styles.nextTitleText}>
+              {fmtXp(nextTitleInfo.xp)} XP to {nextTitleInfo.title}
+            </Text>
+          ) : (
+            <Text style={styles.nextTitleText}>Maximum rank reached</Text>
+          )}
+          <Text style={styles.xpSubLabel}>{xp ?? 0} / {xpForNext} XP</Text>
+        </View>
+
+        {/* ── Stat tiles ────────────────────────────── */}
+        <View style={styles.statsRow}>
+          <View style={styles.statTile}>
+            <Ionicons name="flame" size={15} color="#FF6B35" />
+            <Text style={styles.statValue}>{streak ?? 0}</Text>
+            <Text style={styles.statLabel}>STREAK</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statTile}>
+            <Ionicons name="flash" size={15} color="#c9a84c" />
+            <Text style={styles.statValue}>+{xpToday}</Text>
+            <Text style={styles.statLabel}>TODAY</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statTile}>
+            <Ionicons name="star" size={15} color="#c9a84c" />
+            <Text style={styles.statValue}>{fmtXp(lifetimeXp)}</Text>
+            <Text style={styles.statLabel}>LIFETIME</Text>
           </View>
         </View>
 
-        <Text style={styles.dailyQuote}>{getDailyQuote()}</Text>
+        {/* ── Parable of the Day ───────────────────── */}
+        <View style={styles.parableCard}>
+          <Text style={styles.parableLabel}>PARABLE OF THE DAY</Text>
+          <View style={styles.parableDivider} />
+          <Text style={styles.parableQuote}>{getDailyQuote()}</Text>
+        </View>
 
         {/* ── Today's momentum ─────────────────────── */}
         {loggedToday.length > 0 && (
@@ -689,66 +819,126 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  // ── Hero ──────────────────────────────────────
-  hero: {
-    paddingTop: 64,
-    paddingHorizontal: 24,
-    paddingBottom: 24,
-    alignItems: 'center',
-  },
-  heroTopRow: {
+  // ── Header identity ───────────────────────────
+  headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 8,
+    paddingTop: 60,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
-  streakChip: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#1a1410',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
+    gap: 10,
+    flex: 1,
   },
-  streakChipText: {
-    color: '#FF6B35',
-    fontSize: 13,
+  avatarCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#1a1610',
+    borderWidth: 1,
+    borderColor: '#2a2418',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarLetter: {
+    color: '#c9a84c',
+    fontSize: 15,
     fontWeight: '700',
+  },
+  headerArchetype: {
+    color: '#c9a84c',
+    fontSize: 11,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  headerUsername: {
+    color: '#5a5650',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 1,
+  },
+  headerRight: {
+    alignItems: 'flex-end',
+    gap: 4,
   },
   calendarBtn: {
     padding: 4,
   },
-  levelNum: {
-    color: '#e8e0cc',
-    fontSize: 64,
-    fontWeight: '800',
-    lineHeight: 70,
-    letterSpacing: -1,
-  },
-  levelLabel: {
-    color: '#5a5650',
+  dayLabel: {
+    color: '#3a3830',
     fontSize: 11,
     fontWeight: '700',
-    letterSpacing: 3,
-    marginTop: -4,
+    letterSpacing: 1.5,
   },
-  titleText: {
-    color: '#c9a84c',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    marginTop: 10,
+
+  // ── Circular ring ─────────────────────────────
+  ringSection: {
+    alignItems: 'center',
+    paddingVertical: 24,
   },
-  xpBarWrapper: {
-    width: '100%',
-    marginTop: 18,
+  ringWrapper: {
+    width: RING_SIZE,
+    height: RING_SIZE,
     position: 'relative',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  ringShape: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    borderWidth: RING_THICK,
+  },
+  ringHalfRight: {
+    position: 'absolute',
+    top: 0,
+    left: RING_SIZE / 2,
+    width: RING_SIZE / 2,
+    height: RING_SIZE,
+    overflow: 'hidden',
+  },
+  ringHalfLeft: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    width: RING_SIZE / 2,
+    height: RING_SIZE,
+    overflow: 'hidden',
+  },
+  ringCenter: {
+    position: 'absolute',
+    top: RING_THICK,
+    left: RING_THICK,
+    width: RING_INNER,
+    height: RING_INNER,
+    borderRadius: RING_INNER / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ringLevelNum: {
+    color: '#e8e0cc',
+    fontSize: 52,
+    fontWeight: '800',
+    letterSpacing: -1,
+    lineHeight: 58,
+  },
+  ringLevelLabel: {
+    color: '#5a5650',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 3,
+    marginTop: -2,
   },
   levelUpText: {
     position: 'absolute',
-    top: -16,
+    top: -22,
     left: 0,
     right: 0,
     textAlign: 'center',
@@ -756,40 +946,88 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     letterSpacing: 3,
+    zIndex: 10,
   },
-  xpBarContainer: {
-    height: 6,
-    backgroundColor: '#17150f',
-    borderRadius: 3,
-    overflow: 'hidden',
+  rankText: {
+    color: '#c9a84c',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+    marginBottom: 4,
   },
-  xpBar: {
-    height: '100%',
-    backgroundColor: '#c9a84c',
-    borderRadius: 3,
-  },
-  levelUpFlashOverlay: {
-    position: 'absolute',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: '#f5d77a',
-    borderRadius: 3,
-  },
-  xpBarLabel: {
+  nextTitleText: {
     color: '#5a5650',
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  xpSubLabel: {
+    color: '#3a3830',
     fontSize: 11,
     fontWeight: '600',
-    textAlign: 'center',
-    marginTop: 8,
   },
 
-  dailyQuote: {
+  // ── Stat tiles ────────────────────────────────
+  statsRow: {
+    flexDirection: 'row',
+    marginHorizontal: 16,
+    backgroundColor: '#0f0e0c',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#1a1814',
+    marginBottom: 20,
+    overflow: 'hidden',
+  },
+  statTile: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 14,
+    gap: 4,
+  },
+  statDivider: {
+    width: 1,
+    backgroundColor: '#1a1814',
+    marginVertical: 12,
+  },
+  statValue: {
+    color: '#e8e0cc',
+    fontSize: 18,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+  statLabel: {
+    color: '#3a3830',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 1.5,
+  },
+
+  // ── Parable card ──────────────────────────────
+  parableCard: {
+    marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: '#1a1814',
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 24,
+  },
+  parableLabel: {
+    color: '#3a3830',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 2.5,
+    marginBottom: 10,
+  },
+  parableDivider: {
+    height: 1,
+    backgroundColor: '#1a1814',
+    marginBottom: 12,
+  },
+  parableQuote: {
     color: '#5a5650',
     fontSize: 13,
     fontStyle: 'italic',
-    textAlign: 'center',
-    paddingHorizontal: 36,
-    marginBottom: 24,
-    lineHeight: 19,
+    lineHeight: 20,
   },
 
   // ── Today card ────────────────────────────────
@@ -876,7 +1114,19 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '600',
     flex: 1,
-    marginRight: 10,
+    marginRight: 6,
+  },
+  multBadge: {
+    backgroundColor: '#1a1610',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginRight: 6,
+  },
+  multBadgeText: {
+    color: '#c9a84c',
+    fontSize: 11,
+    fontWeight: '700',
   },
   taskXp: {
     color: '#c9a84c',
