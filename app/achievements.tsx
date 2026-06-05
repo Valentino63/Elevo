@@ -52,6 +52,7 @@ export default function AchievementsScreen() {
             <Text style={styles.sectionHeader}>{CATEGORY_LABELS[cat].toUpperCase()}</Text>
             {byCategory[cat].map(achievement => {
               const unlocked = unlockedIds.includes(achievement.id);
+              const hiddenLocked = achievement.hidden === true && !unlocked;
               return (
                 <View
                   key={achievement.id}
@@ -65,11 +66,13 @@ export default function AchievementsScreen() {
                   </View>
                   <View style={styles.cardRight}>
                     <Text style={[styles.cardTitle, !unlocked && styles.dimText]}>
-                      {achievement.title}
+                      {hiddenLocked ? '??? — Hidden' : achievement.title}
                     </Text>
-                    <Text style={[styles.cardDesc, !unlocked && styles.dimDesc]}>
-                      {achievement.description}
-                    </Text>
+                    {!hiddenLocked && (
+                      <Text style={[styles.cardDesc, !unlocked && styles.dimDesc]}>
+                        {achievement.description}
+                      </Text>
+                    )}
                   </View>
                 </View>
               );

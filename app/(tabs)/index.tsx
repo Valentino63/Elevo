@@ -121,8 +121,9 @@ export default function HomeScreen() {
           savedSubArchetype, savedLoggedToday, savedCompletions, savedNewTaskStarts,
           savedSideArchetypes, savedEarnedXp, savedRampLevel, savedExistingHabits,
           savedRampStartDate, savedRampUnlocked, savedPaceOverride,
-          savedAchSeeded, _savedAchUnlocked, savedWorkoutHistory,
+          savedAchSeeded, savedAchUnlocked, savedWorkoutHistory,
           savedLifetimeXp, savedUsername, savedJoinDate,
+          savedAchVersion, savedDailyTaskCounts, savedDailyCats, savedComebackAchieved,
         ] = await Promise.all([
           AsyncStorage.getItem('elevo_xp'),
           AsyncStorage.getItem('elevo_level'),
@@ -146,6 +147,10 @@ export default function HomeScreen() {
           AsyncStorage.getItem('elevo_lifetime_xp'),
           AsyncStorage.getItem('elevo_username'),
           AsyncStorage.getItem('elevo_join_date'),
+          AsyncStorage.getItem('elevo_achievements_version'),
+          AsyncStorage.getItem('elevo_daily_task_counts'),
+          AsyncStorage.getItem('elevo_daily_categories'),
+          AsyncStorage.getItem('elevo_comeback_achieved'),
         ]);
         const today = new Date().toISOString().split('T')[0];
         const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
@@ -178,6 +183,31 @@ export default function HomeScreen() {
         setUsername(savedUsername);
         setJoinDate(savedJoinDate);
 
+        // Version migration — runs regardless of seeding; prevents toast storm for existing users
+        const achVersion = parseInt(savedAchVersion ?? '0') || 0;
+        if (achVersion < 2) {
+          const migHistory: { isPR?: boolean }[] = savedWorkoutHistory ? JSON.parse(savedWorkoutHistory) : [];
+          const migComps: Record<string, number> = savedCompletions ? JSON.parse(savedCompletions) : {};
+          const migStreak = savedStreak ? Number(savedStreak) : 0;
+          const migDailyTaskCounts: Record<string, number> = savedDailyTaskCounts ? JSON.parse(savedDailyTaskCounts) : {};
+          const migDailyCats: Record<string, string[]> = savedDailyCats ? JSON.parse(savedDailyCats) : {};
+          const migComebackAchieved = savedComebackAchieved === 'true';
+          const migBestDayTaskCount = Math.max(0, ...Object.values(migDailyTaskCounts));
+          const migBestDayCategories = Math.max(0, ...Object.values(migDailyCats).map((a: string[]) => a.length));
+          const migStats = buildStats(savedLevelNum, migStreak, migComps, migHistory, {
+            bestDayTaskCount: migBestDayTaskCount,
+            bestDayCategories: migBestDayCategories,
+            comebackTo7: migComebackAchieved,
+          });
+          const currentUnlocked: string[] = savedAchUnlocked ? JSON.parse(savedAchUnlocked) : [];
+          const allQualifying = ACHIEVEMENTS.filter(a => a.check(migStats)).map(a => a.id);
+          const mergedIds = [...new Set([...currentUnlocked, ...allQualifying])];
+          await Promise.all([
+            AsyncStorage.setItem('elevo_unlocked_achievements', JSON.stringify(mergedIds)),
+            AsyncStorage.setItem('elevo_achievements_version', '2'),
+          ]);
+        }
+
         // First-run achievement seeding — silently unlock everything already earned
         if (!savedAchSeeded) {
           const history: { isPR?: boolean }[] = savedWorkoutHistory ? JSON.parse(savedWorkoutHistory) : [];
@@ -209,13 +239,25 @@ export default function HomeScreen() {
     str: number,
     comps: Record<string, number>
   ) => {
-    const [rawHistory, rawUnlocked] = await Promise.all([
+    const [rawHistory, rawUnlocked, rawDailyTaskCounts, rawDailyCats, rawComebackAchieved] = await Promise.all([
       AsyncStorage.getItem('elevo_workout_history'),
       AsyncStorage.getItem('elevo_unlocked_achievements'),
+      AsyncStorage.getItem('elevo_daily_task_counts'),
+      AsyncStorage.getItem('elevo_daily_categories'),
+      AsyncStorage.getItem('elevo_comeback_achieved'),
     ]);
     const history: { isPR?: boolean }[] = rawHistory ? JSON.parse(rawHistory) : [];
     const unlockedIds: string[] = rawUnlocked ? JSON.parse(rawUnlocked) : [];
-    const stats = buildStats(lvl, str, comps, history);
+    const dailyTaskCounts: Record<string, number> = rawDailyTaskCounts ? JSON.parse(rawDailyTaskCounts) : {};
+    const dailyCats: Record<string, string[]> = rawDailyCats ? JSON.parse(rawDailyCats) : {};
+    const comebackAchieved = rawComebackAchieved === 'true';
+    const bestDayTaskCount = Math.max(0, ...Object.values(dailyTaskCounts));
+    const bestDayCategories = Math.max(0, ...Object.values(dailyCats).map((a: string[]) => a.length));
+    const stats = buildStats(lvl, str, comps, history, {
+      bestDayTaskCount,
+      bestDayCategories,
+      comebackTo7: comebackAchieved,
+    });
     const newlyUnlocked = ACHIEVEMENTS.filter(a => !unlockedIds.includes(a.id) && a.check(stats));
     if (newlyUnlocked.length === 0) return;
     const newIds = [...unlockedIds, ...newlyUnlocked.map(a => a.id)];
