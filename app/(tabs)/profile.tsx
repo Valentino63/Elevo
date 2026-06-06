@@ -129,7 +129,7 @@ export default function ProfileScreen() {
         <View style={[styles.card, styles.halfCard]}>
           <Text style={styles.cardLabel}>PATH</Text>
           <Text style={styles.cardValue}>{archetype || '—'}</Text>
-          {subArchetype ? <Text style={styles.cardSub}>{subArchetype}</Text> : null}
+          {subArchetype && subArchetype !== 'none' ? <Text style={styles.cardSub}>{subArchetype}</Text> : null}
           {sideArchetypes.length > 0 ? <Text style={styles.cardSub}>+ {sideArchetypes.join(' · ')}</Text> : null}
         </View>
       </View>

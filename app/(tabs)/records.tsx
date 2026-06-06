@@ -267,10 +267,9 @@ export default function RecordsScreen() {
                                 style={styles.clearButton}
                                 onPress={async () => {
                                     if (!editing) return;
-                                    const existing = values[editing.name] ?? { current: null, history: [] };
                                     const newValues = {
                                         ...values,
-                                        [editing.name]: { current: null, history: existing.history },
+                                        [editing.name]: { current: null, history: [] },
                                     };
                                     setValues(newValues);
                                     await AsyncStorage.setItem('elevo_records', JSON.stringify(newValues));
@@ -315,6 +314,9 @@ const styles = StyleSheet.create({
     outerRow: {
         marginHorizontal: 24,
         marginBottom: 8,
+        backgroundColor: '#0f0f0f',
+        borderRadius: 8,
+        overflow: 'hidden',
     },
     row: {
         flexDirection: 'row',
@@ -322,8 +324,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 12,
         paddingHorizontal: 16,
-        backgroundColor: '#0f0f0f',
-        borderRadius: 8,
     },
     recordName: {
         color: '#e8e0cc',
@@ -340,27 +340,31 @@ const styles = StyleSheet.create({
     historyRow: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 8,
+        alignItems: 'center',
+        gap: 6,
         paddingHorizontal: 16,
-        paddingTop: 6,
-        paddingBottom: 2,
+        paddingTop: 2,
+        paddingBottom: 10,
     },
     historyChip: {
         flexDirection: 'row',
-        alignItems: 'center',
+        alignItems: 'baseline',
+        gap: 4,
     },
     historyLabel: {
-        color: '#3a3a38',
+        color: '#4a4640',
         fontSize: 11,
+        fontWeight: '600',
     },
     historyValue: {
-        color: '#5a5650',
-        fontSize: 11,
-        fontWeight: 'bold',
+        color: '#7a7268',
+        fontSize: 14,
+        fontWeight: '700',
     },
     historySep: {
-        color: '#2a2a2a',
-        fontSize: 11,
+        color: '#2a2820',
+        fontSize: 12,
+        marginHorizontal: 2,
     },
     modalOverlay: {
         flex: 1,

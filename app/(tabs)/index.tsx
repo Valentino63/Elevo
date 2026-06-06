@@ -335,7 +335,7 @@ export default function HomeScreen() {
     const taskStartDate = updatedTaskStarts[activityName];
     const isNewTask = taskStartDate != null && taskStartDate >= thirtyDaysAgo;
     const newHabitMultiplier = isNewTask && currentCount < 5 && activityFreq[activityName] === 'Daily' ? 3 : 1;
-    const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday, sideArchetypes) * newHabitMultiplier);
+    const adjustedAmount = Math.round(amount * getMultiplier(activityName, archetype, subArchetype, effectiveLoggedToday, sideArchetypes) * newHabitMultiplier / 5) * 5;
 
     const r = await awardXp(adjustedAmount, activityName);
 
@@ -475,14 +475,16 @@ export default function HomeScreen() {
   const allFilteredActivities = useMemo(() => rampFilteredCategories.flatMap(c => c.activities), [rampFilteredCategories]);
   const suggestedActivities = useMemo(() => sortByCompletions(allFilteredActivities, completions).slice(0, 8), [allFilteredActivities, completions]);
   const displayXpMap = useMemo(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const effective = lastLogDate !== today ? [] : loggedToday;
     const map: Record<string, number> = {};
     for (const activity of allFilteredActivities) {
       if (activity.name === 'Misogi') continue;
-      const m = getMultiplier(activity.name, archetype, subArchetype, loggedToday, sideArchetypes);
+      const m = getMultiplier(activity.name, archetype, subArchetype, effective, sideArchetypes);
       map[activity.name] = Math.round(activity.xp * m / 5) * 5;
     }
     return map;
-  }, [allFilteredActivities, archetype, subArchetype, loggedToday, sideArchetypes]);
+  }, [allFilteredActivities, archetype, subArchetype, loggedToday, sideArchetypes, lastLogDate]);
 
   const multiplierMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -823,10 +825,7 @@ export default function HomeScreen() {
         transparent
         animationType="fade"
         onRequestClose={dismissAchievement}>
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={dismissAchievement}>
+        <View style={styles.modalOverlay}>
           <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.achievementCard}>
             <View style={styles.achievementTrophy}>
               <Ionicons name="trophy" size={32} color="#c9a84c" />
@@ -840,7 +839,7 @@ export default function HomeScreen() {
               </Text>
             </TouchableOpacity>
           </TouchableOpacity>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Shooting star overlay */}
@@ -1233,9 +1232,10 @@ const styles = StyleSheet.create({
   modalClose: {
     marginTop: 22,
     alignItems: 'center',
-    paddingVertical: 13,
+    paddingVertical: 14,
     backgroundColor: '#c9a84c',
     borderRadius: 10,
+    alignSelf: 'stretch',
   },
   modalCloseText: {
     color: '#0a0a0a',

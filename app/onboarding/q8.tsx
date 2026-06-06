@@ -26,6 +26,11 @@ export default function Q8() {
         router.push('/onboarding/final');
     };
 
+    const handleSkip = async () => {
+        await AsyncStorage.setItem('elevo_q8', '');
+        router.push('/onboarding/final');
+    };
+
     return (
         <KeyboardAvoidingView
             style={styles.outer}
@@ -64,6 +69,9 @@ export default function Q8() {
                     <Text style={[styles.buttonText, !isValid && styles.buttonTextDisabled]}>
                         Continue
                     </Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.skipButton} onPress={handleSkip}>
+                    <Text style={styles.skipButtonText}>Skip for now</Text>
                 </TouchableOpacity>
             </View>
         </KeyboardAvoidingView>
@@ -120,4 +128,14 @@ const styles = StyleSheet.create({
     buttonDisabled: { backgroundColor: '#2a2a2a' },
     buttonText: { color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' },
     buttonTextDisabled: { color: '#5a5650' },
+    skipButton: {
+        marginHorizontal: 24,
+        marginTop: 10,
+        paddingVertical: 12,
+        alignItems: 'center',
+    },
+    skipButtonText: {
+        color: '#5a5650',
+        fontSize: 14,
+    },
 });

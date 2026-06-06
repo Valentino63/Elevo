@@ -140,6 +140,10 @@ export default function WorkoutScreen() {
     };
 
     const saveTemplate = async () => {
+        if (!builderName.trim()) {
+            Alert.alert('Name required', 'Please enter a template name.');
+            return;
+        }
         const exercises: Exercise[] = builderExercises
             .filter(e => e.name.trim())
             .map(e => ({
@@ -150,7 +154,10 @@ export default function WorkoutScreen() {
                 weight: parseFloat(e.weight) || 0,
                 duration: parseInt(e.duration) || 30,
             }));
-        if (!builderName.trim() || exercises.length === 0) return;
+        if (exercises.length === 0) {
+            Alert.alert('Name required', 'Please add at least one exercise name.');
+            return;
+        }
 
         let updated: Template[];
         if (editingTemplate) {
@@ -256,6 +263,7 @@ export default function WorkoutScreen() {
             return;
         }
 
+        const today = new Date().toISOString().split('T')[0];
         const session: WorkoutSession = {
             id: Date.now().toString(),
             templateName: activeTemplate.name,
@@ -267,6 +275,22 @@ export default function WorkoutScreen() {
         const newHistory = [...history, session].slice(-50);
         setHistory(newHistory);
         await AsyncStorage.setItem('elevo_workout_history', JSON.stringify(newHistory));
+
+        // XP dedup: only award XP once per template per day
+        const rawXpAwarded = await AsyncStorage.getItem('elevo_workout_xp_awarded');
+        const xpAwarded: Record<string, string[]> = rawXpAwarded ? JSON.parse(rawXpAwarded) : {};
+        const todayAwarded = xpAwarded[today] ?? [];
+        if (todayAwarded.includes(activeTemplate.name)) {
+            const repeatPrMsg = prCount > 0 ? `${prCount} PR${prCount > 1 ? 's' : ''} · ` : '';
+            Alert.alert(
+                'Workout Saved',
+                `${repeatPrMsg}Already logged today — no XP, but progress saved.`,
+                [{ text: 'Got it', onPress: () => setView('list') }]
+            );
+            return;
+        }
+        const updatedAwarded = { ...xpAwarded, [today]: [...todayAwarded, activeTemplate.name] };
+        await AsyncStorage.setItem('elevo_workout_xp_awarded', JSON.stringify(updatedAwarded));
 
         const ACTIVITY = 'Training (weights/calisthenics/plyometrics)';
 
@@ -285,6 +309,12 @@ export default function WorkoutScreen() {
         const xpEarned = Math.round(baseXp * getMultiplier(ACTIVITY, archetype, subArchetype, [], sideArchetypes));
 
         const r = await awardXp(xpEarned, ACTIVITY);
+
+        // Write to elevo_earned_xp so the home-screen "done today" row shows the real amount.
+        // Must happen after awardXp (first-workout path only — repeat returns before this).
+        const rawEarned = await AsyncStorage.getItem('elevo_earned_xp');
+        const existingEarned: Record<string, number> = rawEarned ? JSON.parse(rawEarned) : {};
+        await AsyncStorage.setItem('elevo_earned_xp', JSON.stringify({ ...existingEarned, [ACTIVITY]: xpEarned }));
 
         const newlyUnlocked: Achievement[] = await checkAchievements(r.newLevel, r.newStreak, r.newCompletions);
         const levelUpMsg = r.didLevelUp ? `\nLevel up! → ${r.newLevel}` : '';
@@ -395,8 +425,7 @@ export default function WorkoutScreen() {
                     </TouchableOpacity>
                     <TouchableOpacity
                         style={[styles.primaryBtn, !canSave && styles.primaryBtnDisabled]}
-                        onPress={saveTemplate}
-                        disabled={!canSave}>
+                        onPress={saveTemplate}>
                         <Text style={styles.primaryBtnText}>Save Template</Text>
                     </TouchableOpacity>
                 </ScrollView>
@@ -475,6 +504,7 @@ export default function WorkoutScreen() {
                                         <View style={{ width: 72 }} />
                                     </View>
                                     {ex.sets.map((s, si) => {
+                                        const isTimePR = s.done && (parseInt(s.duration) || 0) > (bestTimeMap[ex.name] ?? 0);
                                         const lastSet = lastSessionData[ex.name]?.[si];
                                         const lastLabel = lastSet ? `Last: ${lastSet.duration}s` : '—';
                                         return (
@@ -489,6 +519,7 @@ export default function WorkoutScreen() {
                                                         editable={!s.done}
                                                     />
                                                     <View style={styles.setActions}>
+                                                        {isTimePR && <Text style={styles.prBadge}>PR</Text>}
                                                         <TouchableOpacity
                                                             style={[styles.doneBtn, s.done && styles.doneBtnActive]}
                                                             onPress={() => markSetDone(ei, si)}>

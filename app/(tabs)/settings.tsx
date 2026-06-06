@@ -125,7 +125,7 @@ export default function SettingsScreen() {
             value={archetype || 'Not set'}
             onPress={() => router.push('/(tabs)/archetypes')}
           />
-          {subArchetype ? (
+          {subArchetype && subArchetype !== 'none' ? (
             <SettingsRow
               label="Sub-archetype"
               value={subArchetype}
