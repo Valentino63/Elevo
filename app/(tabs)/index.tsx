@@ -8,6 +8,7 @@ import {
   categories, activityArchetypes, activityFreq,
   getMultiplier, activityExplanations, getDailyQuote
 } from '../../lib/utils';
+import { activityContent } from '../../lib/activityContent';
 import { ACHIEVEMENTS, buildStats, type Achievement } from '../../lib/achievements';
 import { awardXp } from '../../lib/xpEngine';
 import Svg, { Circle } from 'react-native-svg';
@@ -783,9 +784,28 @@ export default function HomeScreen() {
           <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modalCard}>
             <Text style={styles.modalTitle}>{explanationModal}</Text>
             <View style={styles.modalDivider} />
-            <Text style={styles.modalBody}>
-              {explanationModal ? activityExplanations[explanationModal] : ''}
-            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
+              <Text style={styles.modalBody}>
+                {explanationModal ? activityExplanations[explanationModal] : ''}
+              </Text>
+              {explanationModal && activityContent[explanationModal] && (
+                <>
+                  <View style={[styles.modalDivider, { marginTop: 16 }]} />
+                  <Text style={styles.modalSectionLabel}>BENEFITS</Text>
+                  {activityContent[explanationModal].benefits.map((b, i) => (
+                    <Text key={i} style={styles.modalBullet}>· {b}</Text>
+                  ))}
+                  <View style={[styles.modalDivider, { marginTop: 16 }]} />
+                  <Text style={styles.modalSectionLabel}>HOW TO</Text>
+                  {activityContent[explanationModal].howTo.map((h, i) => (
+                    <Text key={i} style={styles.modalBullet}>· {h}</Text>
+                  ))}
+                  <View style={[styles.modalDivider, { marginTop: 16 }]} />
+                  <Text style={styles.modalSectionLabel}>THE SCIENCE</Text>
+                  <Text style={styles.modalBody}>{activityContent[explanationModal].science}</Text>
+                </>
+              )}
+            </ScrollView>
             <TouchableOpacity onPress={() => setExplanationModal(null)} style={styles.modalClose}>
               <Text style={styles.modalCloseText}>Got it</Text>
             </TouchableOpacity>
@@ -1290,5 +1310,23 @@ const styles = StyleSheet.create({
   starText: {
     color: '#c9a84c',
     fontSize: 18,
+  },
+
+  modalScroll: {
+    maxHeight: 420,
+  },
+  modalSectionLabel: {
+    color: '#3a3830',
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 2.5,
+    marginTop: 14,
+    marginBottom: 10,
+  },
+  modalBullet: {
+    color: '#e8e0cc',
+    fontSize: 13,
+    lineHeight: 20,
+    marginBottom: 6,
   },
 });
