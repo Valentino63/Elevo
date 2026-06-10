@@ -1,31 +1,6 @@
 // ELEVO — Final blended activity content for all 79 daily habits.
 // Synthesized from Perplexity, ChatGPT, Gemini (where available), and Claude/Opus —
-// merged into one app-ready version per task.
-//
-// NOTE: The original message was truncated. Entries for 'Standing for your morals
-// (end of day reflection)' and all subsequent tasks are missing — add them manually.
-// Missing keys (use exact spelling from activityExplanations in utils.ts):
-//   'Standing for your morals (end of day reflection)'
-//   'Being grounded (end of day reflection)'
-//   'Be content with yourself (end of day reflection)'
-//   'Being social', 'Initiate a conversation with a stranger'
-//   'Give someone a genuine compliment', 'Organise or attend a social event'
-//   "Call or meet a friend you haven't spoken to in a while"
-//   'Practice public speaking (mirror/recording)'
-//   'Active listening — full presence, no phone'   ← was 'Active listening (full presence, no phone)' in original paste
-//   'Do something kind without expecting anything'
-//   'Spend quality time with family (no phones)'
-//   'Have a meaningful conversation with a family member', 'Plan a family activity'
-//   'Financial planning session', 'Tell someone you love them'
-//   'Publish something (post, video, article)', 'Brainstorm session (15 min minimum)'
-//   "Study someone you admire's work", 'Engage with your audience'
-//   'Batch content creation session (1hr minimum)', 'Seek feedback on your work'
-//   'Review finances/business metrics'            ← was 'Review finances and business metrics' in original paste
-//   'Outreach to a potential client or collaborator'
-//   'Work on the business not in it (30min strategic)' ← was '...30 min...' in original paste
-//   'Sales or negotiation practice', '1 hour silence', '1 day fast', 'Skill audit'
-//   'Misogi'                                      ← was 'Misogi (a task with ~50% failure rate)' in original paste
-//   "New Year's review", '1 week total digital detox'
+// merged into one app-ready version per task. Drop straight into your app.
 
 export type ActivityContent = {
   benefits: string[];
@@ -702,5 +677,459 @@ export const activityContent: Record<string, ActivityContent> = {
       `Write down one specific thing to do differently tomorrow`,
     ],
     science: `Reflection strengthens metacognition — your ability to monitor your own thoughts and behavior from the outside. That improves impulse control over time, because you're effectively giving your brain repeated practice at catching and correcting patterns before they become automatic mistakes.`,
+  },
+
+  'Standing for your morals (end of day reflection)': {
+    benefits: [
+      `Increases self-respect and reduces the low hum of inner conflict`,
+      `Builds courage that compounds — easier to stand firm next time once you've done it once`,
+      `Improves sleep quality when your actions actually match your values`,
+    ],
+    howTo: [
+      `Each evening, ask where you stayed silent, compromised, or acted with real integrity`,
+      `Be honest rather than generous with yourself — the value is in the accuracy`,
+      `Pick one concrete moral action for tomorrow based on what you noticed`,
+    ],
+    science: `Acting against your own values creates cognitive dissonance — a measurable form of internal stress — while standing up for your beliefs, even in small ways, tends to feel invigorating and reinforces self-esteem. Value-consistent behavior supports a stronger, more coherent sense of self over time.`,
+  },
+
+  'Being grounded (end of day reflection)': {
+    benefits: [
+      `Lowers anxiety and improves emotional stability`,
+      `Keeps you realistic instead of getting swept up in spiraling thoughts`,
+      `Creates a reliable nightly reset that prevents stress from accumulating`,
+    ],
+    howTo: [
+      `End the day by naming what is true, what's in your control, and what isn't`,
+      `Pair it with slow breathing and brief body awareness — feet on the floor, shoulders relaxed`,
+      `Keep it short — a few honest sentences are enough`,
+    ],
+    science: `Grounding shifts attention away from mental noise and toward present-moment sensory input, which directly lowers stress activation. Over time, that practice makes your nervous system less reactive overall and quicker to settle when something does spike it.`,
+  },
+
+  'Be content with yourself (end of day reflection)': {
+    benefits: [
+      `Builds genuine self-acceptance and reduces comparison-driven stress`,
+      `Improves mood and lowers baseline anxiety when practiced consistently`,
+      `Makes it easier to act from confidence rather than from the need to prove something`,
+    ],
+    howTo: [
+      `Each evening, name one thing you did well today — not just outcomes, but effort and character`,
+      `Separate your worth from your results; acknowledge progress without dismissing it`,
+      `If self-criticism flares up, ask whether you'd say the same thing to someone you care about`,
+    ],
+    science: `Self-compassion — treating yourself with the same fairness you'd extend to others — is consistently linked with better emotional regulation, resilience, and motivation. Chronic self-criticism activates the threat response in the brain; acknowledging your effort without harsh judgment keeps that system quieter and supports more stable, sustained action over time.`,
+  },
+
+  // ===================== BATCH 4 — Social =====================
+
+  'Being social': {
+    benefits: [
+      `Improves mood, reduces loneliness, and boosts overall wellbeing`,
+      `Strengthens your conversational fluency and comfort with new people`,
+      `Builds a larger, warmer network over time through simple daily contact`,
+    ],
+    howTo: [
+      `Make it a point to genuinely talk to at least one person each day — not just reply to messages`,
+      `Be open, make eye contact, and give people your real attention rather than half of it`,
+      `Treat casual conversations as worth having in their own right, not just stepping stones to something`,
+    ],
+    science: `Regular social contact is one of the strongest predictors of long-term wellbeing — more robust than wealth, status, or physical health alone. Social interaction activates reward circuits in the brain and helps regulate stress hormones, which is why chronic isolation is associated with worse outcomes across almost every health measure.`,
+  },
+
+  'Initiate a conversation with a stranger': {
+    benefits: [
+      `Builds social confidence and reduces the fear of rejection through repeated exposure`,
+      `Opens you to unexpected connections, opportunities, and perspectives`,
+      `Trains the habit of reaching out rather than waiting to be approached`,
+    ],
+    howTo: [
+      `Pick a low-stakes situation — waiting in a line, at a gym, in a coffee shop — and make a simple, genuine comment`,
+      `Lead with curiosity rather than a script; ask something real, not just small talk`,
+      `Don't worry about the outcome — the rep counts regardless of how far the conversation goes`,
+    ],
+    science: `Research consistently finds that people underestimate how much strangers enjoy being talked to. Each successful interaction weakens the threat signal your brain attaches to social risk, making future initiations easier. Over time this gradually shifts your default behavior from avoidance to openness.`,
+  },
+
+  'Give someone a genuine compliment': {
+    benefits: [
+      `Boosts mood — both yours and theirs — through a brief, high-value interaction`,
+      `Strengthens relationships and builds goodwill that compounds quietly over time`,
+      `Trains you to notice what's good in others, which retrains your attention generally`,
+    ],
+    howTo: [
+      `Make it specific and true — "the way you handled that conversation was sharp" lands far better than "you're great"`,
+      `Say it once, clearly, without fishing for a return compliment`,
+      `Don't reserve it for grand moments; small, daily ones carry more weight in total`,
+    ],
+    science: `Giving compliments activates reward circuits for both giver and receiver, and genuine, specific praise is more socially powerful than vague flattery because it signals close attention. The habit of looking for things to honestly appreciate in others also shifts your attentional bias away from criticism and complaint over time.`,
+  },
+
+  'Organise or attend a social event': {
+    benefits: [
+      `Creates shared experiences that deepen existing relationships and build new ones`,
+      `Adds richness and variety to your social life that daily interactions alone can't provide`,
+      `Builds your reputation as someone who makes things happen, not just shows up`,
+    ],
+    howTo: [
+      `Don't overthink the format — a dinner, a walk, a game, a coffee can all count`,
+      `If organizing feels like too much, just commit to attending something someone else put together`,
+      `Show up fully — no early exits unless you have to, and no phone at the table`,
+    ],
+    science: `Shared activities create stronger social bonds than conversation alone — doing things together builds synchronized emotional states and shared memory, both of which strengthen closeness. Organizing events also positions you as a social hub, which research links to higher wellbeing and broader, more resilient networks.`,
+  },
+
+  "Call or meet a friend you haven't spoken to in a while": {
+    benefits: [
+      `Strengthens relationships that quietly drift without regular contact`,
+      `Gives both people a boost — reconnections often feel better than expected`,
+      `Reminds you of who matters in your life beyond the loudest, most recent contacts`,
+    ],
+    howTo: [
+      `Send a message or make a call — no elaborate reason needed, "thinking of you" is enough`,
+      `Make it real: ask a question, share something, don't just check in and disappear`,
+      `Keep a rough list of people worth staying in touch with and cycle through it over time`,
+    ],
+    science: `Relationships decay without maintenance — research shows that friendships require repeated, reciprocal contact to stay strong. But reconnections are often warmer than people predict, and the act of reaching out itself signals care and investment, which both parties feel. Dormant ties, reactivated, also frequently open unexpected opportunities.`,
+  },
+
+  'Practice public speaking (mirror/recording)': {
+    benefits: [
+      `Builds confidence and fluency so nerves shrink over time instead of staying constant`,
+      `Improves clarity, pacing, and presence in every situation where you need to communicate`,
+      `Turns a common fear into a competitive advantage the majority of people never develop`,
+    ],
+    howTo: [
+      `Speak out loud for 2-5 minutes on any topic — record yourself or use a mirror`,
+      `Focus on one thing per session: pacing, eye contact, filler words, structure`,
+      `Review the recording honestly; the discomfort of watching yourself is part of what makes it effective`,
+    ],
+    science: `Public speaking anxiety is a form of social threat response. Deliberate, repeated exposure with low actual stakes — practicing alone — gradually desensitizes that response. Recording yourself adds an external perspective that self-awareness alone can't replicate, which accelerates the correction of habits you can't notice in the moment.`,
+  },
+
+  'Active listening — full presence, no phone': {
+    benefits: [
+      `Deepens relationships faster than almost anything else you can do in a conversation`,
+      `Improves your understanding and memory of what was actually said`,
+      `Makes people feel genuinely valued, which builds trust and goodwill that lasts`,
+    ],
+    howTo: [
+      `Put the phone face-down or away before the conversation starts, not midway through`,
+      `Focus on understanding rather than planning your response — most people do the opposite`,
+      `Reflect back what you heard before adding your own point; it shows you actually listened`,
+    ],
+    science: `Most people listen at about 25% of their actual capacity because they're simultaneously planning a response, checking their phone, or drifting. Full attention is rare enough that people notice it immediately, and it activates the brain's social reward systems — being truly heard triggers the same circuits as being helped. The skill compounds because it makes people want to talk to you.`,
+  },
+
+  'Do something kind without expecting anything': {
+    benefits: [
+      `Improves your own mood and wellbeing — the act benefits you as much as the recipient`,
+      `Builds a reputation for generosity that returns to you in ways you can't predict`,
+      `Trains a mindset of abundance rather than scarcity`,
+    ],
+    howTo: [
+      `Look for one small thing each day — hold a door, cover someone's coffee, send a useful link`,
+      `Do it without announcement, credit, or expectation of reciprocation`,
+      `If you're unsure what to do, just ask someone how their day is going and actually listen`,
+    ],
+    science: `Prosocial behavior consistently boosts the wellbeing of the giver as much as the receiver — sometimes more. It activates reward pathways and dampens stress hormones, and regularly acting with generosity has been linked to lower cortisol and stronger immune function. The absence of expected reciprocity is actually what makes it most effective: unconditional giving bypasses the transactional framing that blunts the effect.`,
+  },
+
+  // ===================== BATCH 5 — Family / Creator / Entrepreneur =====================
+
+  'Spend quality time with family (no phones)': {
+    benefits: [
+      `Strengthens the relationships that matter most over the long run`,
+      `Creates shared memories and a sense of connection that daily routine alone can't build`,
+      `Reduces stress and improves wellbeing for everyone involved`,
+    ],
+    howTo: [
+      `Set a clear window — dinner, an evening activity, a weekend morning — and protect it`,
+      `Phones away for everyone, including you; model what you want to see`,
+      `Be present in what you're doing, not planning the next thing or reviewing the last`,
+    ],
+    science: `Family connection is one of the strongest predictors of long-term happiness and health across decades of research. Quality time — defined by genuine attention and interaction, not just proximity — is what actually produces those benefits. Shared rituals, in particular, build a sense of belonging and stability that buffers against stress.`,
+  },
+
+  'Have a meaningful conversation with a family member': {
+    benefits: [
+      `Deepens understanding and closeness in ways that surface-level daily chat doesn't`,
+      `Helps family members feel seen and heard, which is foundational to strong relationships`,
+      `Often reveals perspectives and information that improve your own thinking`,
+    ],
+    howTo: [
+      `Ask an open question about something real — how they're actually doing, what's on their mind, what they're working through`,
+      `Listen more than you talk; don't rush to fix, advise, or redirect`,
+      `Follow up on something you discussed last time — it shows you were paying attention`,
+    ],
+    science: `Deeper conversations — those involving real thoughts, feelings, and experiences rather than logistics — are consistently associated with greater happiness and closeness than small talk. They require vulnerability and attention from both sides, which activates trust and bonding mechanisms that shallow interaction doesn't reach.`,
+  },
+
+  'Plan a family activity': {
+    benefits: [
+      `Gives everyone something to look forward to and strengthens shared identity`,
+      `Creates the shared experiences that become memories and inside references`,
+      `Signals to your family that they're a priority worth planning for`,
+    ],
+    howTo: [
+      `Keep it simple — a walk, a meal, a film, a day trip — the activity matters less than the intention`,
+      `Involve others in choosing so it's genuinely shared rather than something imposed`,
+      `Follow through; cancelled plans communicate the opposite of what you intended`,
+    ],
+    science: `Anticipation of positive events boosts wellbeing before they even happen — the planning itself is part of the benefit. Shared activities synchronize emotional states between family members and create the positive memories that form the felt sense of a strong, close family over time.`,
+  },
+
+  'Financial planning session': {
+    benefits: [
+      `Reduces money-related stress and anxiety by replacing vagueness with clarity`,
+      `Makes it far more likely you'll hit financial goals by turning them into specific plans`,
+      `Prevents small, fixable problems from compounding into large, difficult ones`,
+    ],
+    howTo: [
+      `Review your income, spending, and savings against your targets — even 15 minutes a week adds up`,
+      `Identify one thing to adjust: a spending category, a savings rate, a debt repayment plan`,
+      `Use a spreadsheet, app, or notebook — whatever you'll actually open consistently`,
+    ],
+    science: `Financial stress is one of the top drivers of chronic stress and relationship conflict, and it primarily comes from uncertainty rather than from having less money. Regular review turns an abstract, anxious background worry into a concrete, manageable situation — which reliably reduces the stress load even when the numbers haven't changed yet.`,
+  },
+
+  'Tell someone you love them': {
+    benefits: [
+      `Strengthens the bond and reminds both people what actually matters`,
+      `Costs nothing but carries real emotional weight for the person who hears it`,
+      `Builds a habit of expressing what you feel before the opportunity is gone`,
+    ],
+    howTo: [
+      `Say it directly and sincerely — in person, by call, or in writing`,
+      `Don't reserve it for big moments; the ordinary moments carry more weight in total`,
+      `Mean it when you say it — people can feel the difference between rote and real`,
+    ],
+    science: `Expressing affection activates oxytocin release in both speaker and recipient, deepening social bonding and reducing stress. Research on end-of-life regrets consistently finds that people wish they had said these things more often — the cost of saying it is near zero, and the regret of not saying it can be permanent.`,
+  },
+
+  'Publish something (post, video, article)': {
+    benefits: [
+      `Builds an audience and compounds your reach over time — the only way to grow is to show up`,
+      `Forces clarity of thought; you understand something far better once you've had to explain it publicly`,
+      `Creates a track record and body of work that passively works for you`,
+    ],
+    howTo: [
+      `Set a consistent schedule and publish to that schedule, not to when you "feel ready"`,
+      `Done and imperfect beats polished and unpublished every time — publish, then improve`,
+      `Repurpose: one idea can become a thread, a short-form video, a longer post, a newsletter section`,
+    ],
+    science: `Audience growth follows a compounding curve — early, consistent publishing builds the base that later reach multiplies on top of. The act of explaining ideas publicly also strengthens your own understanding through the "generation effect" — the brain encodes information more durably when you produce it rather than just consume it.`,
+  },
+
+  'Brainstorm session (15 min minimum)': {
+    benefits: [
+      `Generates ideas that focused, task-mode thinking doesn't reach`,
+      `Gives your best thinking raw material to work with rather than waiting for inspiration`,
+      `Builds the habit of treating idea generation as a skill you practice, not a talent you wait for`,
+    ],
+    howTo: [
+      `Set a timer, pick one question or problem, and write every idea without filtering`,
+      `Quantity over quality — judgment kills flow, so defer criticism until after the timer`,
+      `Review afterward and mark the two or three ideas worth taking further`,
+    ],
+    science: `Divergent thinking — generating multiple possibilities without judgment — uses different neural networks than convergent, analytical thinking. Deliberately switching into that mode through timed, constraint-free brainstorming produces novel combinations your normal problem-solving mode won't reach, because it suspends the evaluative filter that usually gates ideas before they're fully formed.`,
+  },
+
+  "Study someone you admire's work": {
+    benefits: [
+      `Compresses years of another person's learning into something you can extract and apply`,
+      `Reveals the underlying principles and decisions that produced visible results`,
+      `Gives you models to test and adapt rather than starting everything from scratch`,
+    ],
+    howTo: [
+      `Pick one person whose output you want to understand, and study one piece of their work deeply`,
+      `Ask: what decisions did they make, what did they avoid, what's the principle underneath?`,
+      `Take notes on what's transferable versus what's specific to their context`,
+    ],
+    science: `Observational learning — watching skilled performers and extracting the underlying structure — is one of the fastest routes to competence because it gives your brain a template to refine rather than building from nothing. The key is going beyond surface imitation to understand the why, which is what makes learning transferable.`,
+  },
+
+  'Engage with your audience': {
+    benefits: [
+      `Builds loyalty and trust far more than broadcasting alone ever could`,
+      `Surfaces feedback, questions, and ideas that improve your content`,
+      `Turns passive followers into active community members who advocate for you`,
+    ],
+    howTo: [
+      `Reply to comments and messages genuinely — real responses, not templates`,
+      `Ask questions, run polls, or request input to invite participation rather than just consumption`,
+      `Treat every engagement as a conversation with a real person, not a metric to manage`,
+    ],
+    science: `Social reciprocity is a deep human norm — when you respond to someone, you activate a sense of mutual recognition that followers of passive creators don't get. That relationship drives retention, word-of-mouth, and long-term growth far more effectively than audience size alone, because it creates a community rather than just a viewership.`,
+  },
+
+  'Batch content creation session (1hr minimum)': {
+    benefits: [
+      `Produces more in one focused block than scattered, reactive creation ever could`,
+      `Removes the daily decision of "what to make" by front-loading all the creation at once`,
+      `Builds a content buffer that removes deadline pressure and protects consistency`,
+    ],
+    howTo: [
+      `Block at least one hour with no interruptions, notifications off, one project open`,
+      `Plan the session beforehand — know exactly what you're creating before you sit down`,
+      `Create in batches (multiple pieces in one sitting) so you stay in flow instead of constantly stopping and starting`,
+    ],
+    science: `Task switching costs real cognitive overhead every time you context-switch. Batching concentrates creation into a continuous flow state, where deep work builds momentum and quality rises because your working memory stays loaded on the same problem. Scheduling the session removes the daily willpower drain of deciding when and whether to create.`,
+  },
+
+  'Seek feedback on your work': {
+    benefits: [
+      `Accelerates improvement faster than self-review alone by surfacing blind spots`,
+      `Builds the skill of hearing criticism constructively instead of defensively`,
+      `Creates a loop between what you think you're doing and what others actually experience`,
+    ],
+    howTo: [
+      `Ask specific questions rather than "what do you think?" — "what was unclear?" gets better answers`,
+      `Seek feedback from people who will be honest, not just supportive`,
+      `Review feedback later when you're not defensive, looking for the kernel of truth even in badly delivered criticism`,
+    ],
+    science: `External feedback corrects the accuracy gap between your mental model of your work and how it actually lands. Self-assessment alone is unreliable — cognitive biases make us systematically bad at judging our own output. Repeated exposure to honest feedback also reduces defensive reactivity over time, making future feedback easier to receive and use.`,
+  },
+
+  'Review finances/business metrics': {
+    benefits: [
+      `Keeps you grounded in what's actually happening versus what you assume or hope`,
+      `Surfaces problems early enough to fix, before they compound into crises`,
+      `Makes better business decisions because you're working from data, not feeling`,
+    ],
+    howTo: [
+      `Set a fixed weekly time to review your key numbers — revenue, expenses, cash, pipeline`,
+      `Look for trends and anomalies, not just totals; the direction of change matters as much as the current level`,
+      `Document what you see and one action it implies, even if that action is "keep going"`,
+    ],
+    science: `Business decisions made from current, accurate data are consistently better than those made from outdated or vague information — the quality of decisions degrades fast when the information it's based on is stale. Regular review also reduces the cognitive load of carrying "I should check that" as an unresolved background worry.`,
+  },
+
+  'Outreach to a potential client or collaborator': {
+    benefits: [
+      `Is one of the highest-leverage activities available: a single conversation can change your business`,
+      `Builds the habit of initiating relationships rather than waiting for them to appear`,
+      `Keeps the pipeline full even when current work is busy and you're not "looking"`,
+    ],
+    howTo: [
+      `Write a short, specific, genuine message — why them, why now, what you're offering or proposing`,
+      `Personalize every message; copy-paste outreach gets copy-paste results`,
+      `Follow up once after no response; two touches, then move on`,
+    ],
+    science: `Most business growth happens through relationships, and most relationships start with one person initiating contact. The fear of rejection keeps most people from doing this consistently, which is why those who do it daily compound a significant advantage over time. Research on persuasion shows that specificity and genuine relevance are the factors that actually get responses.`,
+  },
+
+  'Work on the business not in it (30min strategic)': {
+    benefits: [
+      `Creates space to improve how the business runs, not just to keep it running`,
+      `Prevents the trap of being permanently busy while never making real progress`,
+      `Builds compounding improvements that make future work easier and more effective`,
+    ],
+    howTo: [
+      `Block 30 minutes where you're not doing client work or operations — you're improving systems`,
+      `Focus on one question: what bottleneck, if removed, would make everything else easier?`,
+      `Write down what you decided or designed — verbal thinking evaporates, written thinking sticks`,
+    ],
+    science: `The tactical-strategic balance is one of the core challenges in entrepreneurship: urgent operational work crowds out the important strategic work that builds long-term capacity. Dedicated time protects against this by making "working on the business" non-negotiable rather than something that happens only when a crisis forces it.`,
+  },
+
+  'Sales or negotiation practice': {
+    benefits: [
+      `Builds the skills that directly convert your work into revenue and better deals`,
+      `Reduces anxiety and hesitation in high-stakes conversations through deliberate exposure`,
+      `Improves your ability to understand what others want and communicate your own value clearly`,
+    ],
+    howTo: [
+      `Roleplay conversations, review past calls or negotiations, or study frameworks specifically`,
+      `Practice the parts that make you most uncomfortable — opening, pricing, handling objections`,
+      `Debrief after real conversations: what worked, what stalled, what you'd say differently`,
+    ],
+    science: `Sales and negotiation are skills that respond directly to deliberate practice — research on expert performance shows that targeted repetition with feedback produces rapid improvement in these domains, far more than just "doing it and hoping." Discomfort in these situations is primarily learned avoidance, which exposure-based practice gradually reverses.`,
+  },
+
+  // ===================== BATCH 6 — Weekly / Monthly / Annual =====================
+
+  '1 hour silence': {
+    benefits: [
+      `Provides a deep reset for the attention system — not just a break from noise but from input entirely`,
+      `Allows the mind to wander productively and generate ideas that focused work blocks out`,
+      `Restores the ability to tolerate quiet, which makes you less reactive to boredom and distraction generally`,
+    ],
+    howTo: [
+      `Find a genuinely quiet environment — no music, podcast, background noise, or screen`,
+      `Sit, walk, or lie down, but don't fill the time with tasks`,
+      `If thoughts arise, let them come and go without chasing them or redirecting away from them`,
+    ],
+    science: `The brain's default mode network — active during quiet, unfocused rest — plays a critical role in memory consolidation, creative insight, and self-reflection. Constant external stimulation suppresses this network. An hour of genuine silence allows it to operate fully, which is why many people report their best ideas emerging during unstructured quiet rather than during work.`,
+  },
+
+  '1 day fast': {
+    benefits: [
+      `Resets hunger cues and reduces dependence on constant eating throughout the day`,
+      `May support metabolic health and cellular repair processes over time`,
+      `Builds extraordinary mental toughness — proving to yourself that discomfort without food is survivable`,
+    ],
+    howTo: [
+      `Start with a shorter window (16-18 hours) before attempting a full day; stay well hydrated throughout`,
+      `Plan it on a lower-activity day and have your first meal ready so you don't overcorrect when you break the fast`,
+      `Consult a doctor first if you have any metabolic conditions, blood sugar issues, or take medication`,
+    ],
+    science: `Extended fasting triggers autophagy — a cellular cleanup process where damaged components are broken down and recycled — and improves insulin sensitivity in many people. It also resets appetite regulation over time by giving the hormonal system a break from constant intake. The mental component is equally real: tolerating hunger without distress is a form of distress tolerance training that generalizes.`,
+  },
+
+  'Skill audit': {
+    benefits: [
+      `Makes your development deliberate rather than accidental`,
+      `Surfaces gaps between where your skills are and where your goals require them to be`,
+      `Builds a clearer picture of your competitive advantages and what to invest in next`,
+    ],
+    howTo: [
+      `List the skills most relevant to your goals and rate yourself honestly on each one`,
+      `Identify the gap between your current level and the level your goals actually require`,
+      `Pick one skill to develop this month and commit to a specific practice routine for it`,
+    ],
+    science: `Skills compound — each one you add makes adjacent skills easier to acquire and creates more combinations you can draw on. But compounding only works if development is directed rather than random. Regular auditing is how you ensure your learning investments are going toward the constraints that actually limit you, rather than just the things you find easiest or most enjoyable to practice.`,
+  },
+
+  'Misogi': {
+    benefits: [
+      `Proves to yourself what you're capable of, which permanently shifts what you believe is possible`,
+      `Provides a sharp contrast to ordinary life that resets your relationship with difficulty`,
+      `Creates a defining experience and reference point you can draw on for years`,
+    ],
+    howTo: [
+      `Choose something with roughly 50% chance of success — hard enough that failure is real, not theatrical`,
+      `Prepare seriously; the point is to genuinely attempt it, not to perform the attempt`,
+      `Reflect afterward regardless of outcome — what you learned about yourself is the actual deliverable`,
+    ],
+    science: `The psychological concept behind the Misogi is stress inoculation — deliberately facing high-intensity challenge in a controlled way builds resilience that transfers to everyday adversity. Experiences at the edge of your capability create stronger, more durable memories and self-belief than comfortable ones, because the emotional intensity of the experience deepens encoding and impact.`,
+  },
+
+  "New Year's review": {
+    benefits: [
+      `Creates an honest record of the year that prevents distorted memory from replacing what actually happened`,
+      `Reveals patterns in what worked, what failed, and what you avoided — across a long enough timeline to be meaningful`,
+      `Sets the context for real, evidence-based goals rather than wishful thinking`,
+    ],
+    howTo: [
+      `Review your journal, goals, and key decisions from the year before writing anything new`,
+      `Ask: what were the highest-leverage actions this year? What would I do differently? What should I stop doing?`,
+      `Set 1-3 major goals for next year based on what you learned, not just what you wish for`,
+    ],
+    science: `Annual reviews leverage what psychologists call "the reminiscence bump" in a useful direction — the brain gives special weight to vivid, meaningful experiences. Deliberately revisiting a year through written records corrects natural memory biases that make good periods seem worse and bad periods seem better than they were, which is the foundation of more accurate, actionable planning.`,
+  },
+
+  '1 week total digital detox': {
+    benefits: [
+      `Resets dopamine baselines and makes ordinary life feel interesting and alive again`,
+      `Reveals what actually fills your time and attention when the default is removed`,
+      `Proves that you can exist without constant connectivity — which changes your relationship with devices permanently`,
+    ],
+    howTo: [
+      `Plan it in advance: inform key people, set auto-replies, and arrange for anything genuinely urgent`,
+      `Replace screen time with physical presence — walks, conversations, reading, cooking, being outside`,
+      `Expect the first two days to feel uncomfortable; that discomfort is the point, and it passes`,
+    ],
+    science: `Digital devices deliver variable-ratio reinforcement — the same mechanism behind slot machine addiction — which makes them unusually hard to put down and unusually easy to reach for compulsively. A full week away disrupts that conditioning at a depth that a few hours or a day can't achieve, allowing dopamine receptors and the attention system to recalibrate to baseline levels.`,
   },
 };
