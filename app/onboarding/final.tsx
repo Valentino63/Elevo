@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { localDateString } from '../../lib/utils';
 
 type Choice = 'ease' | 'jump';
 
@@ -10,7 +11,7 @@ export default function Final() {
     const [choice, setChoice] = useState<Choice | null>(null);
 
     const handleBegin = async () => {
-        const today = new Date().toISOString().split('T')[0];
+        const today = localDateString();
         const writes: Promise<void>[] = [
             AsyncStorage.setItem('elevo_ramp_start_date', today),
             AsyncStorage.setItem('elevo_onboarding_done', 'true'),

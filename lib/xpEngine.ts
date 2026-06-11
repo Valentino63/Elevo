@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getXpForLevel, activityCategory } from './utils';
+import { getXpForLevel, activityCategory, localDateString } from './utils';
 import { ACHIEVEMENTS, buildStats, type Achievement } from './achievements';
 
 export interface AwardXpResult {
@@ -37,8 +37,9 @@ export async function awardXp(
   earnedXp: number,
   activityName: string | null
 ): Promise<AwardXpResult> {
-  const today = new Date().toISOString().split('T')[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+  const today = localDateString();
+  const yd = new Date(); yd.setDate(yd.getDate() - 1);
+  const yesterday = localDateString(yd);
 
   const [
     rawXp, rawLevel, rawStreak, rawLastLog, rawLogged, rawCompletions, rawLifetime, rawDailyXp,

@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { getTitle, getXpForLevel } from '../../lib/utils';
+import { getTitle, getXpForLevel, localDateString } from '../../lib/utils';
 import { ACHIEVEMENTS } from '../../lib/achievements';
 
 export default function ProfileScreen() {
@@ -43,7 +43,7 @@ export default function ProfileScreen() {
 
         let savedJoinDate = rawJoinDate;
         if (!savedJoinDate) {
-          savedJoinDate = new Date().toISOString().split('T')[0];
+          savedJoinDate = localDateString();
           await AsyncStorage.setItem('elevo_join_date', savedJoinDate);
         }
 

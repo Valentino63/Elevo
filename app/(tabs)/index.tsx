@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getTitle, getXpForLevel,
   categories, activityArchetypes, activityFreq,
-  getMultiplier, activityExplanations, getDailyQuote, subArchetypeTiers
+  getMultiplier, activityExplanations, getDailyQuote, subArchetypeTiers, localDateString
 } from '../../lib/utils';
 import { activityContent } from '../../lib/activityContent';
 import { ACHIEVEMENTS, buildStats, type Achievement } from '../../lib/achievements';
@@ -153,8 +153,9 @@ export default function HomeScreen() {
           AsyncStorage.getItem('elevo_daily_categories'),
           AsyncStorage.getItem('elevo_comeback_achieved'),
         ]);
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+        const today = localDateString();
+        const yd = new Date(); yd.setDate(yd.getDate() - 1);
+        const yesterday = localDateString(yd);
         const savedXpNum = savedXp ? Math.round(Number(savedXp) / 5) * 5 : 0;
         const savedLevelNum = savedLevel ? Number(savedLevel) : 1;
         setXp(savedXpNum);
@@ -310,7 +311,7 @@ export default function HomeScreen() {
       const newEarnedXp = { ...earnedXp, Misogi: misogiGained };
       await AsyncStorage.setItem('elevo_earned_xp', JSON.stringify(newEarnedXp));
       setStreak(r.newStreak);
-      setLastLogDate(new Date().toISOString().split('T')[0]);
+      setLastLogDate(localDateString());
       setLoggedToday(r.newLoggedToday);
       setCompletions(r.newCompletions);
       setLevel(r.newLevel);
@@ -322,7 +323,7 @@ export default function HomeScreen() {
       return;
     }
 
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     const effectiveLoggedToday = lastLogDate !== today ? [] : loggedToday;
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const currentCount = completions[activityName] ?? 0;
@@ -486,7 +487,7 @@ export default function HomeScreen() {
   const allFilteredActivities = useMemo(() => rampFilteredCategories.flatMap(c => c.activities), [rampFilteredCategories]);
   const suggestedActivities = useMemo(() => sortByCompletions(allFilteredActivities, completions).slice(0, 8), [allFilteredActivities, completions]);
   const displayXpMap = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     const effective = lastLogDate !== today ? [] : loggedToday;
     const map: Record<string, number> = {};
     for (const activity of allFilteredActivities) {

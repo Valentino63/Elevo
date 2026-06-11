@@ -919,6 +919,13 @@ export const archetypes = [
   { name: 'Jack of All Trades', description: 'No sub-archetypes' },
 ];
 
+export function localDateString(d: Date = new Date()): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export const subArchetypes: Record<string, string[]> = {
   'Healthy Guy': ['Weight Loss', 'Longevity', 'Energy Optimisation'],
   'Gymbro / Athlete': ['Bulk', 'Cut', 'Maintain / Recomp', 'Sport-Specific'],

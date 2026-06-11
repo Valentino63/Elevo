@@ -12,7 +12,7 @@ import {
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getMultiplier } from '../../lib/utils';
+import { getMultiplier, localDateString } from '../../lib/utils';
 import { awardXp, checkAchievements } from '../../lib/xpEngine';
 import type { Achievement } from '../../lib/achievements';
 
@@ -263,7 +263,7 @@ export default function WorkoutScreen() {
             return;
         }
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = localDateString();
         const session: WorkoutSession = {
             id: Date.now().toString(),
             templateName: activeTemplate.name,
