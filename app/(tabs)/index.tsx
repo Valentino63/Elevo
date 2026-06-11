@@ -6,7 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getTitle, getXpForLevel,
   categories, activityArchetypes, activityFreq,
-  getMultiplier, activityExplanations, getDailyQuote
+  getMultiplier, activityExplanations, getDailyQuote, subArchetypeTiers
 } from '../../lib/utils';
 import { activityContent } from '../../lib/activityContent';
 import { ACHIEVEMENTS, buildStats, type Achievement } from '../../lib/achievements';
@@ -415,18 +415,28 @@ export default function HomeScreen() {
     });
   }, [loggedToday, lastLogDate, completions, level, newTaskStarts, archetype, subArchetype, sideArchetypes, earnedXp, checkAchievements]);
 
-  const filteredCategories = useMemo(() => categories.map(category => ({
-    ...category,
-    activities: sortByCompletions(
-      archetype
-        ? category.activities.filter(a =>
-            activityArchetypes[a.name]?.includes(archetype) ||
-            sideArchetypes.some(sa => activityArchetypes[a.name]?.includes(sa))
-          )
-        : category.activities,
-      completions
-    ),
-  })).filter(category => category.activities.length > 0), [archetype, sideArchetypes, completions]);
+  const filteredCategories = useMemo(() => {
+    const subTasks = subArchetype && subArchetype !== 'none'
+      ? subArchetypeTiers[subArchetype]
+      : null;
+    return categories.map(category => ({
+      ...category,
+      activities: sortByCompletions(
+        archetype
+          ? category.activities.filter(a =>
+              activityArchetypes[a.name]?.includes(archetype) ||
+              sideArchetypes.some(sa => activityArchetypes[a.name]?.includes(sa)) ||
+              (subTasks && (
+                subTasks.core.includes(a.name) ||
+                subTasks.strong.includes(a.name) ||
+                subTasks.relevant.includes(a.name)
+              ))
+            )
+          : category.activities,
+        completions
+      ),
+    })).filter(category => category.activities.length > 0);
+  }, [archetype, subArchetype, sideArchetypes, completions]);
 
   const rampFilteredCategories = useMemo(() => {
     if (rampUnlocked || rampLevel === 'skip' || !rampLevel) return filteredCategories;
