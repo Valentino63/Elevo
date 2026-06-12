@@ -295,18 +295,21 @@ export default function WorkoutScreen() {
         const ACTIVITY = 'Training (weights/calisthenics/plyometrics)';
 
         // Read archetype for multiplier; everything else is owned by awardXp
-        const [rawArchetype, rawSubArchetype, rawSideArchetypes] = await Promise.all([
+        const [rawArchetype, rawSubArchetype, rawSideArchetypes, rawLogged, rawLastLogDate] = await Promise.all([
             AsyncStorage.getItem('elevo_archetype'),
             AsyncStorage.getItem('elevo_subarchetype'),
             AsyncStorage.getItem('elevo_side_archetypes'),
+            AsyncStorage.getItem('elevo_logged_today'),
+            AsyncStorage.getItem('elevo_last_log_date'),
         ]);
         const archetype = rawArchetype ?? null;
         const subArchetype = rawSubArchetype ?? null;
         const sideArchetypes: string[] = rawSideArchetypes ? JSON.parse(rawSideArchetypes) : [];
+        const effectiveLoggedToday: string[] = rawLastLogDate === today && rawLogged ? JSON.parse(rawLogged) : [];
 
         const baseXp = 150 + prCount * 50;
         // No 3x new-habit bonus for workouts — workout XP uses its own formula
-        const xpEarned = Math.round(baseXp * getMultiplier(ACTIVITY, archetype, subArchetype, [], sideArchetypes));
+        const xpEarned = Math.round(baseXp * getMultiplier(ACTIVITY, archetype, subArchetype, effectiveLoggedToday, sideArchetypes));
 
         const r = await awardXp(xpEarned, ACTIVITY);
 

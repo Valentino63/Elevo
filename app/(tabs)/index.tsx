@@ -443,7 +443,7 @@ export default function HomeScreen() {
     if (rampUnlocked || rampLevel === 'skip' || !rampLevel) return filteredCategories;
 
     if (rampLevel === 'full') {
-      const startDate = rampStartDate ? new Date(rampStartDate) : new Date();
+      const startDate = rampStartDate ? new Date(rampStartDate + 'T12:00:00') : new Date();
       const daysElapsed = Math.floor((Date.now() - startDate.getTime()) / 86400000);
       const visible = new Set<string>();
       for (const { days, task } of FULL_RAMP_LADDER) {

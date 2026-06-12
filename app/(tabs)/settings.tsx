@@ -65,28 +65,6 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleResetProgress = () => {
-    Alert.alert(
-      'Reset Progress',
-      'Clears XP, level, streak, and activity logs. Keeps your username, archetype, and onboarding.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Reset Progress', style: 'destructive', onPress: async () => {
-            const PROGRESS_KEYS = [
-              'elevo_xp', 'elevo_level', 'elevo_streak',
-              'elevo_last_log_date', 'elevo_logged_today',
-              'elevo_completions', 'elevo_new_task_starts',
-              'elevo_workout_history', 'elevo_records',
-              'elevo_lifetime_xp', 'elevo_earned_xp',
-            ];
-            await AsyncStorage.multiRemove(PROGRESS_KEYS);
-          },
-        },
-      ]
-    );
-  };
-
   const handleFullReset = () => {
     Alert.alert(
       'Full Reset',
@@ -166,7 +144,6 @@ export default function SettingsScreen() {
 
         <SectionHeader title="DANGER ZONE" />
         <View style={styles.section}>
-          <SettingsRow label="Reset Progress" onPress={handleResetProgress} danger />
           <SettingsRow label="Full Reset" onPress={handleFullReset} danger />
         </View>
 
