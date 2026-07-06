@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { C, F } from '../../lib/tokens';
 
 const OPTIONS = [
     'My body and health',
@@ -23,7 +24,10 @@ export default function Q1() {
     return (
         <View style={styles.container}>
             <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Step 3 of 11</Text>
+                <View style={styles.progressHeader}>
+                    <Text style={styles.stepCounter}>03 / 11</Text>
+                    <Text style={styles.progressLabel}>Building your plan</Text>
+                </View>
                 <View style={styles.progressTrack}>
                     <View style={[styles.progressFill, { width: '27%' }]} />
                 </View>
@@ -38,7 +42,12 @@ export default function Q1() {
                         key={option}
                         style={[styles.option, selected === option && styles.optionSelected]}
                         onPress={() => setSelected(option)}>
-                        <Text style={styles.optionText}>{option}</Text>
+                        <View style={styles.optionRow}>
+                            <Text style={styles.optionText}>{option}</Text>
+                            <View style={[styles.radioRing, selected === option && styles.radioRingSelected]}>
+                                {selected === option && <View style={styles.radioDot} />}
+                            </View>
+                        </View>
                     </TouchableOpacity>
                 ))}
             </ScrollView>
@@ -55,46 +64,60 @@ export default function Q1() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0a0a0a', paddingBottom: 32 },
-    progressContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
-    progressText: { color: '#5a5650', fontSize: 12, marginBottom: 8 },
-    progressTrack: { height: 2, backgroundColor: '#2a2a2a', borderRadius: 1 },
-    progressFill: { height: 2, backgroundColor: '#c9a84c', borderRadius: 1 },
+    container: { flex: 1, backgroundColor: C.bg, paddingBottom: 32 },
+    progressContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
+    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    stepCounter: { color: C.gold, fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+    progressLabel: { color: C.muted, fontSize: 12 },
+    progressTrack: { height: 2, backgroundColor: C.border, borderRadius: 1 },
+    progressFill: { height: 2, backgroundColor: C.gold, borderRadius: 1 },
     scroll: { flex: 1 },
-    content: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 },
+    content: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
     question: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#e8e0cc',
+        fontSize: 26,
+        fontFamily: F.serif,
+        color: C.text,
         marginBottom: 8,
-        lineHeight: 28,
+        lineHeight: 34,
     },
     subtitle: {
-        fontSize: 13,
-        color: '#5a5650',
+        fontSize: 14,
+        color: C.muted,
         marginBottom: 24,
-        lineHeight: 20,
+        lineHeight: 22,
     },
     option: {
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderWidth: 1,
-        borderColor: '#2a2a2a',
-        borderRadius: 8,
+        borderColor: C.border,
+        borderRadius: 10,
         paddingVertical: 16,
         paddingHorizontal: 20,
         marginBottom: 10,
     },
-    optionSelected: { borderColor: '#c9a84c', borderWidth: 2 },
-    optionText: { color: '#e8e0cc', fontSize: 15 },
+    optionSelected: { borderColor: C.gold, borderWidth: 2, backgroundColor: C.cardSelected },
+    optionRow: { flexDirection: 'row', alignItems: 'center' },
+    optionText: { color: C.text, fontSize: 15, flex: 1 },
+    radioRing: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        borderWidth: 2,
+        borderColor: C.border,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    radioRingSelected: { borderColor: C.gold },
+    radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: C.gold },
     button: {
         marginHorizontal: 24,
         marginTop: 8,
-        backgroundColor: '#c9a84c',
-        borderRadius: 8,
+        backgroundColor: C.gold,
+        borderRadius: 10,
         paddingVertical: 16,
         alignItems: 'center',
     },
-    buttonDisabled: { backgroundColor: '#2a2a2a' },
-    buttonText: { color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' },
-    buttonTextDisabled: { color: '#5a5650' },
+    buttonDisabled: { backgroundColor: C.border },
+    buttonText: { color: C.bg, fontSize: 16, fontWeight: 'bold' },
+    buttonTextDisabled: { color: C.faint },
 });

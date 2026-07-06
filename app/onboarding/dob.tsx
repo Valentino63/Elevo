@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { C, F } from '../../lib/tokens';
 
 function calcAge(dob: Date): number {
     const today = new Date();
@@ -43,7 +44,10 @@ export default function Dob() {
     return (
         <View style={styles.container}>
             <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Step 2 of 11</Text>
+                <View style={styles.progressHeader}>
+                    <Text style={styles.stepCounter}>02 / 11</Text>
+                    <Text style={styles.progressLabel}>Building your plan</Text>
+                </View>
                 <View style={styles.progressTrack}>
                     <View style={[styles.progressFill, { width: '18%' }]} />
                 </View>
@@ -116,48 +120,50 @@ export default function Dob() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0a0a0a', paddingBottom: 32 },
-    progressContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
-    progressText: { color: '#5a5650', fontSize: 12, marginBottom: 8 },
-    progressTrack: { height: 2, backgroundColor: '#2a2a2a', borderRadius: 1 },
-    progressFill: { height: 2, backgroundColor: '#c9a84c', borderRadius: 1 },
+    container: { flex: 1, backgroundColor: C.bg, paddingBottom: 32 },
+    progressContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
+    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    stepCounter: { color: C.gold, fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+    progressLabel: { color: C.muted, fontSize: 12 },
+    progressTrack: { height: 2, backgroundColor: C.border, borderRadius: 1 },
+    progressFill: { height: 2, backgroundColor: C.gold, borderRadius: 1 },
     scroll: { flex: 1 },
-    content: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 },
+    content: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
     question: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#e8e0cc',
+        fontSize: 26,
+        fontFamily: F.serif,
+        color: C.text,
         marginBottom: 8,
-        lineHeight: 28,
+        lineHeight: 34,
     },
     subtitle: {
-        fontSize: 13,
-        color: '#5a5650',
+        fontSize: 14,
+        color: C.muted,
         marginBottom: 28,
-        lineHeight: 20,
+        lineHeight: 22,
     },
     iosPicker: {
         marginBottom: 8,
         height: 200,
     },
     selectedDateText: {
-        color: '#c9a84c',
+        color: C.gold,
         fontSize: 14,
         textAlign: 'center',
         marginTop: 4,
         marginBottom: 16,
     },
     dobButton: {
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderWidth: 1,
-        borderColor: '#2a2a2a',
-        borderRadius: 8,
+        borderColor: C.border,
+        borderRadius: 10,
         paddingVertical: 16,
         paddingHorizontal: 20,
         marginBottom: 16,
     },
     dobButtonText: {
-        color: '#e8e0cc',
+        color: C.text,
         fontSize: 15,
     },
     blockBox: {
@@ -182,12 +188,12 @@ const styles = StyleSheet.create({
     button: {
         marginHorizontal: 24,
         marginTop: 8,
-        backgroundColor: '#c9a84c',
-        borderRadius: 8,
+        backgroundColor: C.gold,
+        borderRadius: 10,
         paddingVertical: 16,
         alignItems: 'center',
     },
-    buttonDisabled: { backgroundColor: '#2a2a2a' },
-    buttonText: { color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' },
-    buttonTextDisabled: { color: '#5a5650' },
+    buttonDisabled: { backgroundColor: C.border },
+    buttonText: { color: C.bg, fontSize: 16, fontWeight: 'bold' },
+    buttonTextDisabled: { color: C.faint },
 });

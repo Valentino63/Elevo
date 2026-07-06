@@ -2,6 +2,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { C, F } from '../../lib/tokens';
 
 const NONE = "None of these yet — I'm starting fresh";
 
@@ -56,7 +57,10 @@ export default function Q2() {
     return (
         <View style={styles.container}>
             <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Step 4 of 11</Text>
+                <View style={styles.progressHeader}>
+                    <Text style={styles.stepCounter}>04 / 11</Text>
+                    <Text style={styles.progressLabel}>Building your plan</Text>
+                </View>
                 <View style={styles.progressTrack}>
                     <View style={[styles.progressFill, { width: '36%' }]} />
                 </View>
@@ -101,68 +105,70 @@ export default function Q2() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0a0a0a', paddingBottom: 32 },
-    progressContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
-    progressText: { color: '#5a5650', fontSize: 12, marginBottom: 8 },
-    progressTrack: { height: 2, backgroundColor: '#2a2a2a', borderRadius: 1 },
-    progressFill: { height: 2, backgroundColor: '#c9a84c', borderRadius: 1 },
+    container: { flex: 1, backgroundColor: C.bg, paddingBottom: 32 },
+    progressContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
+    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    stepCounter: { color: C.gold, fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+    progressLabel: { color: C.muted, fontSize: 12 },
+    progressTrack: { height: 2, backgroundColor: C.border, borderRadius: 1 },
+    progressFill: { height: 2, backgroundColor: C.gold, borderRadius: 1 },
     scroll: { flex: 1 },
-    content: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 },
+    content: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
     question: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#e8e0cc',
+        fontSize: 26,
+        fontFamily: F.serif,
+        color: C.text,
         marginBottom: 8,
-        lineHeight: 28,
+        lineHeight: 34,
     },
     subtitle: {
-        fontSize: 13,
-        color: '#5a5650',
+        fontSize: 14,
+        color: C.muted,
         marginBottom: 24,
-        lineHeight: 20,
+        lineHeight: 22,
     },
     option: {
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderWidth: 1,
-        borderColor: '#2a2a2a',
-        borderRadius: 8,
+        borderColor: C.border,
+        borderRadius: 10,
         paddingVertical: 14,
         paddingHorizontal: 16,
         marginBottom: 10,
     },
-    optionSelected: { borderColor: '#c9a84c', borderWidth: 2 },
+    optionSelected: { borderColor: C.gold, borderWidth: 2, backgroundColor: C.cardSelected },
     optionRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
     checkbox: {
         width: 22,
         height: 22,
         borderRadius: 4,
         borderWidth: 2,
-        borderColor: '#2a2a2a',
+        borderColor: C.border,
         alignItems: 'center',
         justifyContent: 'center',
         flexShrink: 0,
     },
     checkboxSelected: {
-        backgroundColor: '#c9a84c',
-        borderColor: '#c9a84c',
+        backgroundColor: C.gold,
+        borderColor: C.gold,
     },
     checkmark: {
-        color: '#0a0a0a',
+        color: C.bg,
         fontSize: 13,
         fontWeight: 'bold',
         lineHeight: 16,
     },
-    optionText: { color: '#e8e0cc', fontSize: 15, flex: 1 },
-    optionTextSelected: { color: '#e8e0cc' },
+    optionText: { color: C.text, fontSize: 15, flex: 1 },
+    optionTextSelected: { color: C.text },
     button: {
         marginHorizontal: 24,
         marginTop: 8,
-        backgroundColor: '#c9a84c',
-        borderRadius: 8,
+        backgroundColor: C.gold,
+        borderRadius: 10,
         paddingVertical: 16,
         alignItems: 'center',
     },
-    buttonDisabled: { backgroundColor: '#2a2a2a' },
-    buttonText: { color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' },
-    buttonTextDisabled: { color: '#5a5650' },
+    buttonDisabled: { backgroundColor: C.border },
+    buttonText: { color: C.bg, fontSize: 16, fontWeight: 'bold' },
+    buttonTextDisabled: { color: C.faint },
 });

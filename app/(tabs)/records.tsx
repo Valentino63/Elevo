@@ -9,9 +9,12 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { useCallback, useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getTitle, getXpForLevel } from '../../lib/utils';
+import { C, F } from '../../lib/tokens';
 
 type RecordEntry = { name: string; unit: string };
 type RecordData = { current: number | null; history: number[] };
@@ -68,27 +71,13 @@ function formatValue(value: number | null | undefined, unit: string): string {
     return `${value} ${unit}`;
 }
 
-type HistoryItem = { label: string; value: string; separator: boolean };
-
-function getHistoryItems(history: number[], unit: string): HistoryItem[] {
-    if (history.length === 0) return [];
-    if (history.length <= 4) {
-        return history.map((v, i) => ({
-            label: i === 0 ? 'Day 1' : `#${i + 1}`,
-            value: formatValue(v, unit),
-            separator: false,
-        }));
+function formatNum(value: number, unit: string): string {
+    if (unit === 'seconds') {
+        const m = Math.floor(value / 60);
+        const s = value % 60;
+        return `${m}:${s.toString().padStart(2, '0')}`;
     }
-    const last4Start = history.length - 4;
-    return [
-        { label: 'Day 1', value: formatValue(history[0], unit), separator: false },
-        { label: '···', value: '', separator: true },
-        ...history.slice(-4).map((v, i) => ({
-            label: `#${last4Start + i + 1}`,
-            value: formatValue(v, unit),
-            separator: false,
-        })),
-    ];
+    return `${value}`;
 }
 
 function migrate(raw: Record<string, unknown>): Record<string, RecordData> {
@@ -105,18 +94,30 @@ function migrate(raw: Record<string, unknown>): Record<string, RecordData> {
     return out;
 }
 
+const RING_R = 32;
+const RING_SIZE = RING_R * 2 + 12;
+const CIRCUMFERENCE = 2 * Math.PI * RING_R;
+
 export default function RecordsScreen() {
     const [values, setValues] = useState<Record<string, RecordData>>({});
     const [editing, setEditing] = useState<RecordEntry | null>(null);
     const [inputValue, setInputValue] = useState('');
     const [inputMinutes, setInputMinutes] = useState('');
     const [inputSeconds, setInputSeconds] = useState('');
+    const [level, setLevel] = useState(1);
+    const [xp, setXp] = useState(0);
 
     useFocusEffect(
         useCallback(() => {
             const loadData = async () => {
-                const saved = await AsyncStorage.getItem('elevo_records');
+                const [saved, savedLevel, savedXp] = await Promise.all([
+                    AsyncStorage.getItem('elevo_records'),
+                    AsyncStorage.getItem('elevo_level'),
+                    AsyncStorage.getItem('elevo_xp'),
+                ]);
                 if (saved) setValues(migrate(JSON.parse(saved)));
+                setLevel(parseInt(savedLevel ?? '1') || 1);
+                setXp(parseInt(savedXp ?? '0') || 0);
             };
             loadData();
         }, [])
@@ -159,43 +160,82 @@ export default function RecordsScreen() {
         setEditing(null);
     };
 
+    const xpForNext = getXpForLevel(level + 1);
+    const xpProgress = xpForNext > 0 ? Math.min(xp / xpForNext, 1) : 0;
+    const dash = CIRCUMFERENCE * xpProgress;
+    const levelTitle = getTitle(level);
+    const fillPct = `${Math.round(xpProgress * 100)}%`;
+
     return (
         <View style={styles.container}>
             <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
-                <Text style={styles.title}>Records</Text>
+                {/* Header card */}
+                <View style={styles.headerCard}>
+                    <View style={styles.ringWrap}>
+                        <Svg width={RING_SIZE} height={RING_SIZE}>
+                            <Circle
+                                cx={RING_SIZE / 2}
+                                cy={RING_SIZE / 2}
+                                r={RING_R}
+                                stroke={C.border}
+                                strokeWidth={6}
+                                fill="none"
+                            />
+                            <Circle
+                                cx={RING_SIZE / 2}
+                                cy={RING_SIZE / 2}
+                                r={RING_R}
+                                stroke={C.gold}
+                                strokeWidth={6}
+                                fill="none"
+                                strokeDasharray={`${dash} ${CIRCUMFERENCE - dash}`}
+                                strokeLinecap="round"
+                                transform={`rotate(-90, ${RING_SIZE / 2}, ${RING_SIZE / 2})`}
+                            />
+                        </Svg>
+                        <View style={styles.ringCenter}>
+                            <Text style={styles.levelNum}>{level}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.headerInfo}>
+                        <Text style={styles.headerTitle}>Records</Text>
+                        <Text style={styles.headerSubtitle}>{levelTitle}</Text>
+                        <View style={styles.xpTrack}>
+                            <View style={[styles.xpFill, { width: fillPct as any }]} />
+                        </View>
+                        <Text style={styles.xpLabel}>{xp} / {xpForNext} XP</Text>
+                    </View>
+                </View>
+
                 {CATEGORIES.map(cat => (
                     <View key={cat.title}>
                         <Text style={styles.categoryHeader}>{cat.title.toUpperCase()}</Text>
                         {cat.records.map(record => {
                             const entry = values[record.name];
                             const current = entry?.current ?? null;
-                            const historyItems = getHistoryItems(entry?.history ?? [], record.unit);
+                            const hist = entry?.history ?? [];
                             return (
                                 <View key={record.name} style={styles.outerRow}>
                                     <TouchableOpacity
                                         style={styles.row}
                                         onPress={() => handleTap(record)}>
                                         <Text style={styles.recordName}>{record.name}</Text>
-                                        <Text style={[
-                                            styles.recordValue,
-                                            current == null && styles.recordEmpty,
-                                        ]}>
-                                            {formatValue(current, record.unit)}
-                                        </Text>
-                                    </TouchableOpacity>
-                                    {historyItems.length > 0 && (
-                                        <View style={styles.historyRow}>
-                                            {historyItems.map((item, idx) =>
-                                                item.separator ? (
-                                                    <Text key={idx} style={styles.historySep}>···</Text>
-                                                ) : (
-                                                    <View key={idx} style={styles.historyChip}>
-                                                        <Text style={styles.historyLabel}>{item.label} </Text>
-                                                        <Text style={styles.historyValue}>{item.value}</Text>
-                                                    </View>
-                                                )
+                                        <View style={styles.valueWrap}>
+                                            <Text style={[
+                                                styles.recordValue,
+                                                current == null && styles.recordEmpty,
+                                            ]}>
+                                                {current == null ? '—' : formatNum(current, record.unit)}
+                                            </Text>
+                                            {current != null && record.unit !== 'seconds' && (
+                                                <Text style={styles.recordUnit}> {record.unit}</Text>
                                             )}
                                         </View>
+                                    </TouchableOpacity>
+                                    {hist.length > 0 && (
+                                        <Text style={styles.prevBest}>
+                                            prev #{hist.length}{'  '}{formatValue(hist[hist.length - 1], record.unit)}
+                                        </Text>
                                     )}
                                 </View>
                             );
@@ -229,7 +269,7 @@ export default function RecordsScreen() {
                                         keyboardType="number-pad"
                                         autoFocus
                                         placeholder="0"
-                                        placeholderTextColor="#5a5650"
+                                        placeholderTextColor={C.faint}
                                     />
                                     <Text style={styles.timeLabel}>min</Text>
                                 </View>
@@ -241,7 +281,7 @@ export default function RecordsScreen() {
                                         onChangeText={setInputSeconds}
                                         keyboardType="number-pad"
                                         placeholder="00"
-                                        placeholderTextColor="#5a5650"
+                                        placeholderTextColor={C.faint}
                                     />
                                     <Text style={styles.timeLabel}>sec</Text>
                                 </View>
@@ -254,7 +294,7 @@ export default function RecordsScreen() {
                                 keyboardType="numeric"
                                 autoFocus
                                 placeholder="0"
-                                placeholderTextColor="#5a5650"
+                                placeholderTextColor={C.faint}
                             />
                         )}
                         <View style={styles.modalButtons}>
@@ -292,109 +332,160 @@ export default function RecordsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
+        backgroundColor: C.bg,
         paddingTop: 60,
     },
-    title: {
-        color: '#c9a84c',
-        fontSize: 24,
-        fontWeight: 'bold',
-        textAlign: 'center',
+    // ── Header card ──
+    headerCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 16,
+        marginBottom: 4,
+        backgroundColor: C.card,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: C.border,
+        padding: 16,
+        gap: 16,
+    },
+    ringWrap: {
+        width: RING_SIZE,
+        height: RING_SIZE,
+    },
+    ringCenter: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    levelNum: {
+        color: C.gold,
+        fontSize: 18,
+        fontFamily: F.serif,
+        fontWeight: '700',
+    },
+    headerInfo: {
+        flex: 1,
+    },
+    headerTitle: {
+        color: C.text,
+        fontSize: 22,
+        fontFamily: F.serif,
+        marginBottom: 2,
+    },
+    headerSubtitle: {
+        color: C.muted,
+        fontSize: 12,
         marginBottom: 8,
     },
+    xpTrack: {
+        height: 3,
+        backgroundColor: C.border,
+        borderRadius: 2,
+        marginBottom: 4,
+    },
+    xpFill: {
+        height: 3,
+        backgroundColor: C.gold,
+        borderRadius: 2,
+    },
+    xpLabel: {
+        color: C.faint,
+        fontSize: 11,
+    },
+    // ── Categories ──
     categoryHeader: {
-        color: '#c9a84c',
-        fontSize: 13,
-        fontWeight: 'bold',
+        color: C.muted,
+        fontSize: 10,
+        letterSpacing: 2.5,
         marginHorizontal: 24,
-        marginTop: 20,
+        marginTop: 24,
         marginBottom: 8,
-        letterSpacing: 1.5,
+        textTransform: 'uppercase',
     },
     outerRow: {
-        marginHorizontal: 24,
-        marginBottom: 8,
-        backgroundColor: '#0f0f0f',
-        borderRadius: 8,
+        marginHorizontal: 16,
+        marginBottom: 5,
+        backgroundColor: C.card,
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: C.border,
         overflow: 'hidden',
     },
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 12,
+        paddingVertical: 13,
         paddingHorizontal: 16,
     },
     recordName: {
-        color: '#e8e0cc',
-        fontSize: 15,
+        color: C.text,
+        fontSize: 14,
+        flex: 1,
     },
-    recordValue: {
-        color: '#c9a84c',
-        fontSize: 15,
-        fontWeight: 'bold',
-    },
-    recordEmpty: {
-        color: '#5a5650',
-    },
-    historyRow: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        gap: 6,
-        paddingHorizontal: 16,
-        paddingTop: 2,
-        paddingBottom: 10,
-    },
-    historyChip: {
+    valueWrap: {
         flexDirection: 'row',
         alignItems: 'baseline',
-        gap: 4,
     },
-    historyLabel: {
-        color: '#4a4640',
-        fontSize: 11,
-        fontWeight: '600',
+    recordValue: {
+        color: C.gold,
+        fontSize: 22,
+        fontFamily: F.serif,
     },
-    historyValue: {
-        color: '#7a7268',
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    historySep: {
-        color: '#2a2820',
+    recordUnit: {
+        color: C.muted,
         fontSize: 12,
-        marginHorizontal: 2,
     },
+    recordEmpty: {
+        color: C.faint,
+        fontSize: 16,
+        fontFamily: undefined,
+    },
+    prevBest: {
+        color: C.muted,
+        fontSize: 11,
+        paddingHorizontal: 16,
+        paddingBottom: 10,
+    },
+    // ── Modal ──
     modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.75)',
+        backgroundColor: 'rgba(0,0,0,0.82)',
         justifyContent: 'center',
         paddingHorizontal: 32,
     },
     modalBox: {
-        backgroundColor: '#0f0f0f',
-        borderRadius: 12,
+        backgroundColor: C.card,
+        borderRadius: 14,
+        borderWidth: 1,
+        borderColor: C.border,
         padding: 24,
     },
     modalTitle: {
-        color: '#e8e0cc',
+        color: C.text,
         fontSize: 18,
-        fontWeight: 'bold',
+        fontFamily: F.serif,
         marginBottom: 4,
     },
     modalUnit: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 13,
         marginBottom: 16,
     },
     modalInput: {
-        backgroundColor: '#0a0a0a',
+        backgroundColor: C.bg,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: C.border,
         paddingHorizontal: 16,
         paddingVertical: 12,
-        fontSize: 20,
-        color: '#e8e0cc',
+        fontSize: 26,
+        fontFamily: F.serif,
+        color: C.text,
         marginBottom: 20,
     },
     modalButtons: {
@@ -408,7 +499,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     cancelText: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 15,
         fontWeight: 'bold',
     },
@@ -419,7 +510,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     clearText: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 15,
         fontWeight: 'bold',
     },
@@ -427,11 +518,11 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 12,
         borderRadius: 8,
-        backgroundColor: '#c9a84c',
+        backgroundColor: C.gold,
         alignItems: 'center',
     },
     saveText: {
-        color: '#0a0a0a',
+        color: C.bg,
         fontSize: 15,
         fontWeight: 'bold',
     },
@@ -446,11 +537,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     timeLabel: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 12,
     },
     timeSeparator: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 28,
         fontWeight: 'bold',
         marginBottom: 20,

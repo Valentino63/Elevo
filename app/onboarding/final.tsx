@@ -3,6 +3,7 @@ import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { localDateString } from '../../lib/utils';
+import { C, F } from '../../lib/tokens';
 
 type Choice = 'ease' | 'jump';
 
@@ -26,7 +27,10 @@ export default function Final() {
     return (
         <View style={styles.container}>
             <View style={styles.progressContainer}>
-                <Text style={styles.progressText}>Step 11 of 11</Text>
+                <View style={styles.progressHeader}>
+                    <Text style={styles.stepCounter}>11 / 11</Text>
+                    <Text style={styles.progressLabel}>Building your plan</Text>
+                </View>
                 <View style={styles.progressTrack}>
                     <View style={[styles.progressFill, { width: '100%' }]} />
                 </View>
@@ -45,7 +49,7 @@ export default function Final() {
                     <Text style={styles.cardBody}>
                         Start with the essentials. New tasks unlock gradually over the first few weeks as habits stack.
                     </Text>
-                    {choice === 'ease' && <Text style={styles.cardCheck}>✓</Text>}
+                    {choice === 'ease' && <View style={styles.cardCheck}><View style={styles.cardCheckDot} /></View>}
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -56,7 +60,7 @@ export default function Final() {
                     <Text style={styles.cardBody}>
                         Show me everything from day one. Full task list, all XP — no gradual unlock.
                     </Text>
-                    {choice === 'jump' && <Text style={styles.cardCheck}>✓</Text>}
+                    {choice === 'jump' && <View style={styles.cardCheck}><View style={styles.cardCheckDot} /></View>}
                 </TouchableOpacity>
             </ScrollView>
 
@@ -73,30 +77,32 @@ export default function Final() {
 }
 
 const styles = StyleSheet.create({
-    container: { flex: 1, backgroundColor: '#0a0a0a', paddingBottom: 32 },
-    progressContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 20 },
-    progressText: { color: '#5a5650', fontSize: 12, marginBottom: 8 },
-    progressTrack: { height: 2, backgroundColor: '#2a2a2a', borderRadius: 1 },
-    progressFill: { height: 2, backgroundColor: '#c9a84c', borderRadius: 1 },
+    container: { flex: 1, backgroundColor: C.bg, paddingBottom: 32 },
+    progressContainer: { paddingHorizontal: 24, paddingTop: 60, paddingBottom: 16 },
+    progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+    stepCounter: { color: C.gold, fontSize: 12, fontWeight: '600', letterSpacing: 1 },
+    progressLabel: { color: C.muted, fontSize: 12 },
+    progressTrack: { height: 2, backgroundColor: C.border, borderRadius: 1 },
+    progressFill: { height: 2, backgroundColor: C.gold, borderRadius: 1 },
     scroll: { flex: 1 },
-    content: { paddingHorizontal: 24, paddingTop: 8, paddingBottom: 16 },
+    content: { paddingHorizontal: 24, paddingTop: 12, paddingBottom: 16 },
     title: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#e8e0cc',
+        fontSize: 26,
+        fontFamily: F.serif,
+        color: C.text,
         marginBottom: 8,
-        lineHeight: 30,
+        lineHeight: 34,
     },
     subtitle: {
-        fontSize: 13,
-        color: '#5a5650',
+        fontSize: 14,
+        color: C.muted,
         marginBottom: 28,
-        lineHeight: 20,
+        lineHeight: 22,
     },
     card: {
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderWidth: 1,
-        borderColor: '#2a2a2a',
+        borderColor: C.border,
         borderRadius: 12,
         paddingVertical: 20,
         paddingHorizontal: 20,
@@ -104,17 +110,18 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     cardSelected: {
-        borderColor: '#c9a84c',
+        borderColor: C.gold,
         borderWidth: 2,
+        backgroundColor: C.cardSelected,
     },
     cardHeading: {
-        color: '#e8e0cc',
+        color: C.text,
         fontSize: 16,
         fontWeight: 'bold',
         marginBottom: 8,
     },
     cardBody: {
-        color: '#5a5650',
+        color: C.muted,
         fontSize: 14,
         lineHeight: 22,
     },
@@ -122,19 +129,30 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 18,
         right: 18,
-        color: '#c9a84c',
-        fontSize: 16,
-        fontWeight: 'bold',
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        borderWidth: 2,
+        borderColor: C.gold,
+        backgroundColor: C.gold,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    cardCheckDot: {
+        width: 10,
+        height: 10,
+        borderRadius: 5,
+        backgroundColor: C.bg,
     },
     button: {
         marginHorizontal: 24,
         marginTop: 8,
-        backgroundColor: '#c9a84c',
-        borderRadius: 8,
+        backgroundColor: C.gold,
+        borderRadius: 10,
         paddingVertical: 16,
         alignItems: 'center',
     },
-    buttonDisabled: { backgroundColor: '#2a2a2a' },
-    buttonText: { color: '#0a0a0a', fontSize: 16, fontWeight: 'bold' },
-    buttonTextDisabled: { color: '#5a5650' },
+    buttonDisabled: { backgroundColor: C.border },
+    buttonText: { color: C.bg, fontSize: 16, fontWeight: 'bold' },
+    buttonTextDisabled: { color: C.faint },
 });
