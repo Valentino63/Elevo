@@ -61,6 +61,7 @@ export default function ArchetypesScreen() {
 
   const subsForCurrent = selectedArchetype ? subArchetypes[selectedArchetype] ?? [] : [];
   const hasSubs = subsForCurrent.length > 0;
+  const isJoAT = selectedArchetype === 'Jack of All Trades';
 
   function subDisplayName(sub: string | null): string {
     return !sub || sub === GENERALIST ? 'Generalist' : sub;
@@ -77,7 +78,7 @@ export default function ArchetypesScreen() {
           {hasSubs && (
             <Text style={styles.subLabel}>{subDisplayName(selectedSubArchetype)}</Text>
           )}
-          {selectedSideArchetypes.length > 0 && (
+          {!isJoAT && selectedSideArchetypes.length > 0 && (
             <Text style={styles.sideLabel}>+ {selectedSideArchetypes.join(' · ')}</Text>
           )}
         </View>
@@ -104,15 +105,17 @@ export default function ArchetypesScreen() {
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity
-          style={styles.editButton}
-          onPress={() => {
-            setDraftSides([...selectedSideArchetypes]);
-            setEnteredFrom('summary');
-            setMode('pickSide');
-          }}>
-          <Text style={styles.editButtonText}>Edit side paths</Text>
-        </TouchableOpacity>
+        {!isJoAT && (
+          <TouchableOpacity
+            style={styles.editButton}
+            onPress={() => {
+              setDraftSides([...selectedSideArchetypes]);
+              setEnteredFrom('summary');
+              setMode('pickSide');
+            }}>
+            <Text style={styles.editButtonText}>Edit side paths</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -149,11 +152,16 @@ export default function ArchetypesScreen() {
             style={styles.confirmButton}
             onPress={async () => {
               const mainChanged = draftMain !== selectedArchetype;
+              const isJoATDraft = draftMain === 'Jack of All Trades';
               const writes: Promise<void>[] = [
                 AsyncStorage.setItem('elevo_archetype', draftMain),
               ];
               let newSides = [...selectedSideArchetypes];
-              if (mainChanged) {
+              if (isJoATDraft) {
+                writes.push(AsyncStorage.setItem('elevo_subarchetype', 'none'));
+                writes.push(AsyncStorage.setItem('elevo_side_archetypes', '[]'));
+                newSides = [];
+              } else if (mainChanged) {
                 writes.push(AsyncStorage.removeItem('elevo_subarchetype'));
                 newSides = newSides.filter(s => s !== draftMain);
                 if (newSides.length !== selectedSideArchetypes.length) {
@@ -163,7 +171,10 @@ export default function ArchetypesScreen() {
               await Promise.all(writes);
               const newMain = draftMain;
               setSelectedArchetype(newMain);
-              if (mainChanged) {
+              if (isJoATDraft) {
+                setSelectedSubArchetype('none');
+                setSelectedSideArchetypes([]);
+              } else if (mainChanged) {
                 setSelectedSubArchetype(null);
                 setSelectedSideArchetypes(newSides);
               }
@@ -173,7 +184,9 @@ export default function ArchetypesScreen() {
                 // Initial setup: chain forward
                 const newHasSubs = (subArchetypes[newMain] ?? []).length > 0;
                 setDraftSub(null);
-                if (newHasSubs) {
+                if (isJoATDraft) {
+                  setMode('summary');
+                } else if (newHasSubs) {
                   setEnteredFrom('setup');
                   setMode('pickSub');
                 } else {
