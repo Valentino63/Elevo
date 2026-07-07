@@ -235,36 +235,46 @@ export default function RecordsScreen() {
                 {CATEGORIES.map(cat => (
                     <View key={cat.title}>
                         <Text style={styles.categoryHeader}>{cat.title.toUpperCase()}</Text>
-                        {cat.records.map(record => {
-                            const entry = values[record.name];
-                            const current = entry?.current ?? null;
-                            const hist = entry?.history ?? [];
-                            return (
-                                <View key={record.name} style={styles.outerRow}>
-                                    <TouchableOpacity
-                                        style={styles.row}
-                                        onPress={() => handleTap(record)}>
-                                        <Text style={styles.recordName}>{record.name}</Text>
-                                        <View style={styles.valueWrap}>
-                                            <Text style={[
-                                                styles.recordValue,
-                                                current == null && styles.recordEmpty,
-                                            ]}>
-                                                {current == null ? '—' : formatNum(current, record.unit)}
+                        <View style={styles.categoryCard}>
+                            {cat.records.map((record, idx) => {
+                                const entry = values[record.name];
+                                const current = entry?.current ?? null;
+                                const hist = entry?.history ?? [];
+                                const isLast = idx === cat.records.length - 1;
+                                return (
+                                    <View key={record.name} style={[styles.outerRow, !isLast && styles.outerRowDivider]}>
+                                        <TouchableOpacity
+                                            style={styles.row}
+                                            onPress={() => handleTap(record)}>
+                                            <View style={styles.rowLeft}>
+                                                <Text style={styles.recordName}>{record.name}</Text>
+                                                {current != null && (
+                                                    <View style={styles.prBadge}>
+                                                        <Text style={styles.prBadgeText}>PR</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                            <View style={styles.valueWrap}>
+                                                <Text style={[
+                                                    styles.recordValue,
+                                                    current == null && styles.recordEmpty,
+                                                ]}>
+                                                    {current == null ? '—' : formatNum(current, record.unit)}
+                                                </Text>
+                                                {current != null && record.unit !== 'seconds' && (
+                                                    <Text style={styles.recordUnit}>{record.unit}</Text>
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                        {hist.length > 0 && (
+                                            <Text style={styles.prevBest}>
+                                                prev #{hist.length}{'  '}{formatValue(hist[hist.length - 1], record.unit)}
                                             </Text>
-                                            {current != null && record.unit !== 'seconds' && (
-                                                <Text style={styles.recordUnit}> {record.unit}</Text>
-                                            )}
-                                        </View>
-                                    </TouchableOpacity>
-                                    {hist.length > 0 && (
-                                        <Text style={styles.prevBest}>
-                                            prev #{hist.length}{'  '}{formatValue(hist[hist.length - 1], record.unit)}
-                                        </Text>
-                                    )}
-                                </View>
-                            );
-                        })}
+                                        )}
+                                    </View>
+                                );
+                            })}
+                        </View>
                     </View>
                 ))}
             </ScrollView>
@@ -390,6 +400,11 @@ const styles = StyleSheet.create({
     ringWrap: {
         width: RING_SIZE,
         height: RING_SIZE,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     ringCenter: {
         position: 'absolute',
@@ -430,6 +445,11 @@ const styles = StyleSheet.create({
         height: 3,
         backgroundColor: C.gold,
         borderRadius: 2,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     xpLabel: {
         color: C.faint,
@@ -437,47 +457,82 @@ const styles = StyleSheet.create({
     },
     // ── Categories ──
     categoryHeader: {
-        color: C.muted,
+        color: C.gold,
         fontSize: 10,
-        letterSpacing: 2.5,
+        letterSpacing: 3.5,
         marginHorizontal: 24,
         marginTop: 24,
         marginBottom: 8,
         textTransform: 'uppercase',
     },
-    outerRow: {
+    categoryCard: {
         marginHorizontal: 16,
-        marginBottom: 5,
         backgroundColor: C.card,
         borderRadius: 10,
         borderWidth: 1,
         borderColor: C.border,
         overflow: 'hidden',
     },
+    outerRow: {},
+    outerRowDivider: {
+        borderBottomWidth: 1,
+        borderBottomColor: C.border,
+    },
     row: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 13,
+        paddingVertical: 16,
         paddingHorizontal: 16,
+    },
+    rowLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        flex: 1,
     },
     recordName: {
         color: C.text,
         fontSize: 14,
         flex: 1,
     },
+    prBadge: {
+        backgroundColor: C.gold,
+        borderRadius: 5,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
+    },
+    prBadgeText: {
+        color: C.bg,
+        fontSize: 9,
+        fontWeight: '700',
+        letterSpacing: 0.5,
+    },
     valueWrap: {
-        flexDirection: 'row',
-        alignItems: 'baseline',
+        flexDirection: 'column',
+        alignItems: 'flex-end',
     },
     recordValue: {
         color: C.gold,
         fontSize: 22,
         fontFamily: F.serif,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     recordUnit: {
         color: C.muted,
-        fontSize: 12,
+        fontSize: 10,
+        marginTop: 2,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     recordEmpty: {
         color: C.faint,
@@ -543,6 +598,11 @@ const styles = StyleSheet.create({
         borderRadius: 6,
         paddingHorizontal: 8,
         paddingVertical: 3,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     deltaChipText: {
         color: C.bg,
@@ -581,6 +641,11 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         backgroundColor: C.gold,
         alignItems: 'center',
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     saveText: {
         color: C.bg,

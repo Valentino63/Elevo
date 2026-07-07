@@ -348,6 +348,7 @@ export default function WorkoutScreen() {
                     <View style={{ width: 32 }} />
                 </View>
                 <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 40 }}>
+                    <Text style={styles.fieldLabel}>TEMPLATE NAME</Text>
                     <TextInput
                         style={styles.templateNameInput}
                         placeholder="Template name"
@@ -356,7 +357,11 @@ export default function WorkoutScreen() {
                         onChangeText={setBuilderName}
                     />
                     <Text style={styles.sectionLabel}>EXERCISES</Text>
-                    {builderExercises.map((ex, i) => (
+                    {builderExercises.map((ex, i) => {
+                        const summary = ex.type === 'reps'
+                            ? `${ex.sets || 0} × ${ex.reps || 0}${parseFloat(ex.weight) > 0 ? ` · ${ex.weight}kg` : ''}`
+                            : `${ex.sets || 0} × ${ex.duration || 0}s`;
+                        return (
                         <View key={ex.id} style={styles.builderExRow}>
                             <View style={styles.builderExNameRow}>
                                 <TextInput
@@ -370,6 +375,9 @@ export default function WorkoutScreen() {
                                     <Text style={styles.removeBtnText}>×</Text>
                                 </TouchableOpacity>
                             </View>
+                            {ex.name.trim().length > 0 && (
+                                <Text style={styles.exSummary}>{summary}</Text>
+                            )}
                             <View style={styles.typeToggleRow}>
                                 {(['reps', 'time'] as ExerciseType[]).map(t => (
                                     <TouchableOpacity
@@ -421,7 +429,8 @@ export default function WorkoutScreen() {
                                 </View>
                             )}
                         </View>
-                    ))}
+                        );
+                    })}
                     <TouchableOpacity
                         style={styles.addExBtn}
                         onPress={() => setBuilderExercises(prev => [...prev, newExerciseRow()])}>
@@ -450,11 +459,15 @@ export default function WorkoutScreen() {
                         <Text style={styles.backBtn}>←</Text>
                     </TouchableOpacity>
                     <Text style={styles.title} numberOfLines={1}>{activeTemplate?.name}</Text>
-                    <View style={{ width: 32 }} />
+                    <View style={styles.timerBadge}>
+                        <View style={styles.timerDot} />
+                        <Text style={styles.timerText}>0:00</Text>
+                    </View>
                 </View>
                 <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 120 }}>
                     {activeExercises.map((ex, ei) => (
                         <View key={ei} style={styles.exerciseBlock}>
+                            <Text style={styles.exerciseCounter}>EXERCISE {ei + 1}/{activeExercises.length}</Text>
                             <Text style={styles.exerciseName}>{ex.name}</Text>
                             {(() => {
                                 const currentIdx = ex.sets.findIndex(s2 => !s2.done);
@@ -473,6 +486,12 @@ export default function WorkoutScreen() {
                                         const lastLabel = lastSet ? `Last: ${lastSet.weight}kg × ${lastSet.reps}` : '—';
                                         return (
                                             <View key={si}>
+                                                {isCurrent && (
+                                                    <View style={styles.currentSetHeader}>
+                                                        <Text style={styles.currentSetLabel}>SET {si + 1} · WORKING</Text>
+                                                        {lastLabel !== '—' && <Text style={styles.currentSetLast}>{lastLabel}</Text>}
+                                                    </View>
+                                                )}
                                                 <View style={[styles.setRow, isCurrent ? styles.setRowCurrent : styles.setRowDim]}>
                                                     <Text style={styles.setNum}>{si + 1}</Text>
                                                     <TextInput
@@ -498,7 +517,12 @@ export default function WorkoutScreen() {
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
-                                                {lastLabel !== '—' && <Text style={styles.lastSetText}>{lastLabel}</Text>}
+                                                {isCurrent && !s.done && (
+                                                    <TouchableOpacity style={styles.logSetBtn} onPress={() => markSetDone(ei, si)}>
+                                                        <Text style={styles.logSetBtnText}>Log Set {si + 1}</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                                {!isCurrent && lastLabel !== '—' && <Text style={styles.lastSetText}>{lastLabel}</Text>}
                                             </View>
                                         );
                                     })}
@@ -517,6 +541,12 @@ export default function WorkoutScreen() {
                                         const lastLabel = lastSet ? `Last: ${lastSet.duration}s` : '—';
                                         return (
                                             <View key={si}>
+                                                {isCurrent && (
+                                                    <View style={styles.currentSetHeader}>
+                                                        <Text style={styles.currentSetLabel}>SET {si + 1} · WORKING</Text>
+                                                        {lastLabel !== '—' && <Text style={styles.currentSetLast}>{lastLabel}</Text>}
+                                                    </View>
+                                                )}
                                                 <View style={[styles.setRow, isCurrent ? styles.setRowCurrent : styles.setRowDim]}>
                                                     <Text style={styles.setNum}>{si + 1}</Text>
                                                     <TextInput
@@ -535,7 +565,12 @@ export default function WorkoutScreen() {
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
-                                                {lastLabel !== '—' && <Text style={styles.lastSetText}>{lastLabel}</Text>}
+                                                {isCurrent && !s.done && (
+                                                    <TouchableOpacity style={styles.logSetBtn} onPress={() => markSetDone(ei, si)}>
+                                                        <Text style={styles.logSetBtnText}>Log Set {si + 1}</Text>
+                                                    </TouchableOpacity>
+                                                )}
+                                                {!isCurrent && lastLabel !== '—' && <Text style={styles.lastSetText}>{lastLabel}</Text>}
                                             </View>
                                         );
                                     })}
@@ -623,11 +658,33 @@ const styles = StyleSheet.create({
         fontSize: 24,
         width: 32,
     },
+    timerBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        width: 52,
+        justifyContent: 'flex-end',
+    },
+    timerDot: {
+        width: 6,
+        height: 6,
+        borderRadius: 3,
+        backgroundColor: C.gold,
+    },
+    timerText: {
+        color: C.muted,
+        fontSize: 13,
+    },
     newTemplateBtn: {
         backgroundColor: C.gold,
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 8,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     newTemplateBtnText: {
         color: C.bg,
@@ -684,10 +741,23 @@ const styles = StyleSheet.create({
         backgroundColor: C.gold,
         alignItems: 'center',
         justifyContent: 'center',
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     playBtnText: {
         color: C.bg,
         fontSize: 13,
+    },
+    fieldLabel: {
+        color: C.muted,
+        fontSize: 11,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 2,
+        marginBottom: 8,
     },
     templateNameInput: {
         backgroundColor: C.card,
@@ -722,6 +792,11 @@ const styles = StyleSheet.create({
         gap: 8,
         marginBottom: 8,
     },
+    exSummary: {
+        color: C.muted,
+        fontSize: 12,
+        marginBottom: 10,
+    },
     typeToggleRow: {
         flexDirection: 'row',
         gap: 8,
@@ -739,6 +814,11 @@ const styles = StyleSheet.create({
     typeBtnActive: {
         backgroundColor: C.gold,
         borderColor: C.gold,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     typeBtnText: {
         color: C.faint,
@@ -778,7 +858,9 @@ const styles = StyleSheet.create({
     },
     numLabel: {
         color: C.faint,
-        fontSize: 11,
+        fontSize: 10,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
         marginBottom: 4,
     },
     numInput: {
@@ -794,16 +876,17 @@ const styles = StyleSheet.create({
         textAlign: 'center',
     },
     addExBtn: {
-        backgroundColor: C.card,
+        backgroundColor: 'transparent',
         borderRadius: 8,
         borderWidth: 1,
+        borderStyle: 'dashed',
         borderColor: C.border,
         paddingVertical: 12,
         alignItems: 'center',
         marginBottom: 20,
     },
     addExBtnText: {
-        color: C.faint,
+        color: C.muted,
         fontSize: 15,
     },
     primaryBtn: {
@@ -812,6 +895,11 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         alignItems: 'center',
         marginBottom: 12,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     primaryBtnDisabled: {
         backgroundColor: C.border,
@@ -824,11 +912,55 @@ const styles = StyleSheet.create({
     exerciseBlock: {
         marginBottom: 24,
     },
+    exerciseCounter: {
+        color: C.muted,
+        fontSize: 10,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 2,
+        marginBottom: 4,
+    },
     exerciseName: {
         color: C.text,
-        fontSize: 16,
+        fontSize: 20,
         fontFamily: F.serif,
         marginBottom: 8,
+    },
+    currentSetHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+        paddingHorizontal: 4,
+    },
+    currentSetLabel: {
+        color: C.gold,
+        fontSize: 10,
+        fontWeight: 'bold',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    currentSetLast: {
+        color: C.muted,
+        fontSize: 11,
+    },
+    logSetBtn: {
+        backgroundColor: C.gold,
+        borderRadius: 8,
+        paddingVertical: 10,
+        alignItems: 'center',
+        marginBottom: 8,
+        marginTop: -2,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
+    },
+    logSetBtnText: {
+        color: C.bg,
+        fontWeight: 'bold',
+        fontSize: 14,
     },
     setHeaderRow: {
         flexDirection: 'row',
@@ -895,9 +1027,19 @@ const styles = StyleSheet.create({
     },
     doneBtnActive: {
         backgroundColor: C.gold,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     doneBtnCurrent: {
         backgroundColor: C.gold,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     doneBtnText: {
         color: C.faint,
@@ -919,6 +1061,11 @@ const styles = StyleSheet.create({
         borderRadius: 4,
         paddingHorizontal: 4,
         paddingVertical: 2,
+        shadowColor: C.gold,
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 0 },
+        elevation: 4,
     },
     lastSetText: {
         color: C.faint,

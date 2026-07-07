@@ -4,20 +4,19 @@ import { useState, useCallback } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { C, F } from '../../lib/tokens';
 
-function SettingsRow({ label, value, onPress, danger }: {
+function SettingsRow({ label, value, onPress }: {
   label: string;
   value?: string;
   onPress?: () => void;
-  danger?: boolean;
 }) {
   return (
     <TouchableOpacity
       style={styles.row}
       onPress={onPress}
       disabled={!onPress}>
-      <Text style={[styles.rowLabel, danger && styles.rowLabelDanger]}>{label}</Text>
+      <Text style={styles.rowLabel}>{label}</Text>
       {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-      {onPress && !danger ? <Text style={styles.rowChevron}>›</Text> : null}
+      {onPress ? <Text style={styles.rowChevron}>›</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -145,9 +144,10 @@ export default function SettingsScreen() {
 
         <View style={styles.dangerZone}>
           <SectionHeader title="DANGER ZONE" />
-          <View style={[styles.section, styles.dangerSection]}>
-            <SettingsRow label="Full Reset" onPress={handleFullReset} danger />
-          </View>
+          <TouchableOpacity style={styles.dangerButton} onPress={handleFullReset}>
+            <Text style={styles.dangerButtonText}>Full Reset</Text>
+            <Text style={styles.dangerButtonSubtext}>Wipes levels, records, achievements</Text>
+          </TouchableOpacity>
         </View>
 
       </ScrollView>
@@ -204,9 +204,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     flex: 1,
   },
-  rowLabelDanger: {
-    color: '#e05555',
-  },
   rowValue: {
     color: C.gold,
     fontSize: 14,
@@ -222,7 +219,23 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: C.border,
   },
-  dangerSection: {
+  dangerButton: {
+    marginHorizontal: 16,
+    backgroundColor: '#2a0e0e',
+    borderWidth: 1,
     borderColor: '#3a1414',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  dangerButtonText: {
+    color: '#e05555',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  dangerButtonSubtext: {
+    color: '#8a5555',
+    fontSize: 12,
+    marginTop: 4,
   },
 });

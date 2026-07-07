@@ -82,7 +82,9 @@ export default function AchievementsScreen() {
           <View key={cat} style={styles.section}>
             <Text style={styles.sectionHeader}>{CATEGORY_LABELS[cat].toUpperCase()}</Text>
             <View style={styles.grid}>
-              {byCategory[cat].map(achievement => {
+              {[...byCategory[cat]]
+                .sort((a, b) => Number(unlockedIds.includes(b.id)) - Number(unlockedIds.includes(a.id)))
+                .map(achievement => {
                 const unlocked = unlockedIds.includes(achievement.id);
                 const hiddenLocked = achievement.hidden === true && !unlocked;
                 return (
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
   content: { paddingHorizontal: 24, paddingBottom: 40 },
   section: { marginBottom: 24 },
   sectionHeader: {
-    color: C.muted,
+    color: C.gold,
     fontSize: 11,
     fontWeight: 'bold',
     textTransform: 'uppercase',
