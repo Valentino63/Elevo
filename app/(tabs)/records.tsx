@@ -80,6 +80,17 @@ function formatNum(value: number, unit: string): string {
     return `${value}`;
 }
 
+function formatDelta(delta: number, unit: string): string {
+    const sign = delta > 0 ? '+' : delta < 0 ? '−' : '';
+    const abs = Math.abs(delta);
+    if (unit === 'seconds') {
+        const m = Math.floor(abs / 60);
+        const s = abs % 60;
+        return `${sign}${m}:${s.toString().padStart(2, '0')}`;
+    }
+    return `${sign}${abs} ${unit}`;
+}
+
 function migrate(raw: Record<string, unknown>): Record<string, RecordData> {
     const out: Record<string, RecordData> = {};
     for (const [key, val] of Object.entries(raw)) {
@@ -165,6 +176,20 @@ export default function RecordsScreen() {
     const dash = CIRCUMFERENCE * xpProgress;
     const levelTitle = getTitle(level);
     const fillPct = `${Math.round(xpProgress * 100)}%`;
+
+    const prevBestValue = editing ? values[editing.name]?.current ?? null : null;
+    const enteredValue = (() => {
+        if (!editing) return null;
+        if (editing.unit === 'seconds') {
+            if (!inputMinutes && !inputSeconds) return null;
+            const m = parseInt(inputMinutes || '0', 10);
+            const s = Math.min(parseInt(inputSeconds || '0', 10), 59);
+            return (isNaN(m) ? 0 : m) * 60 + (isNaN(s) ? 0 : s);
+        }
+        const parsed = parseFloat(inputValue);
+        return isNaN(parsed) ? null : parsed;
+    })();
+    const delta = prevBestValue != null && enteredValue != null ? enteredValue - prevBestValue : null;
 
     return (
         <View style={styles.container}>
@@ -296,6 +321,20 @@ export default function RecordsScreen() {
                                 placeholder="0"
                                 placeholderTextColor={C.faint}
                             />
+                        )}
+                        {prevBestValue != null && (
+                            <View style={styles.prevBestRow}>
+                                <Text style={styles.prevBestLabel}>
+                                    Previous best {formatValue(prevBestValue, editing?.unit ?? '')}
+                                </Text>
+                                {delta != null && (
+                                    <View style={styles.deltaChip}>
+                                        <Text style={styles.deltaChipText}>
+                                            {formatDelta(delta, editing?.unit ?? '')}
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
                         )}
                         <View style={styles.modalButtons}>
                             <TouchableOpacity
@@ -487,6 +526,28 @@ const styles = StyleSheet.create({
         fontFamily: F.serif,
         color: C.text,
         marginBottom: 20,
+    },
+    prevBestRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginTop: -8,
+        marginBottom: 20,
+    },
+    prevBestLabel: {
+        color: C.muted,
+        fontSize: 12,
+    },
+    deltaChip: {
+        backgroundColor: C.gold,
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 3,
+    },
+    deltaChipText: {
+        color: C.bg,
+        fontSize: 12,
+        fontWeight: '700',
     },
     modalButtons: {
         flexDirection: 'row',

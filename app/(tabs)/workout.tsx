@@ -15,6 +15,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMultiplier, localDateString } from '../../lib/utils';
 import { awardXp, checkAchievements } from '../../lib/xpEngine';
 import type { Achievement } from '../../lib/achievements';
+import { C, F } from '../../lib/tokens';
 
 type ExerciseType = 'reps' | 'time';
 type Exercise = {
@@ -350,7 +351,7 @@ export default function WorkoutScreen() {
                     <TextInput
                         style={styles.templateNameInput}
                         placeholder="Template name"
-                        placeholderTextColor="#5a5650"
+                        placeholderTextColor={C.faint}
                         value={builderName}
                         onChangeText={setBuilderName}
                     />
@@ -361,7 +362,7 @@ export default function WorkoutScreen() {
                                 <TextInput
                                     style={[styles.input, { flex: 1 }]}
                                     placeholder="Exercise name"
-                                    placeholderTextColor="#5a5650"
+                                    placeholderTextColor={C.faint}
                                     value={ex.name}
                                     onChangeText={v => updateExerciseRow(i, 'name', v)}
                                 />
@@ -455,7 +456,9 @@ export default function WorkoutScreen() {
                     {activeExercises.map((ex, ei) => (
                         <View key={ei} style={styles.exerciseBlock}>
                             <Text style={styles.exerciseName}>{ex.name}</Text>
-                            {ex.type === 'reps' ? (
+                            {(() => {
+                                const currentIdx = ex.sets.findIndex(s2 => !s2.done);
+                                return ex.type === 'reps' ? (
                                 <>
                                     <View style={styles.setHeaderRow}>
                                         <Text style={[styles.setHeaderCell, { width: 28 }]}>SET</Text>
@@ -465,11 +468,12 @@ export default function WorkoutScreen() {
                                     </View>
                                     {ex.sets.map((s, si) => {
                                         const pr = s.done && isPR(ex.name, s.weight, s.reps);
+                                        const isCurrent = si === currentIdx;
                                         const lastSet = lastSessionData[ex.name]?.[si];
                                         const lastLabel = lastSet ? `Last: ${lastSet.weight}kg × ${lastSet.reps}` : '—';
                                         return (
                                             <View key={si}>
-                                                <View style={[styles.setRow, s.done && styles.setRowDone]}>
+                                                <View style={[styles.setRow, isCurrent ? styles.setRowCurrent : styles.setRowDim]}>
                                                     <Text style={styles.setNum}>{si + 1}</Text>
                                                     <TextInput
                                                         style={[styles.setInput, { flex: 1 }]}
@@ -488,9 +492,9 @@ export default function WorkoutScreen() {
                                                     <View style={styles.setActions}>
                                                         {pr && <Text style={styles.prBadge}>PR</Text>}
                                                         <TouchableOpacity
-                                                            style={[styles.doneBtn, s.done && styles.doneBtnActive]}
+                                                            style={[styles.doneBtn, s.done && styles.doneBtnActive, isCurrent && !s.done && styles.doneBtnCurrent]}
                                                             onPress={() => markSetDone(ei, si)}>
-                                                            <Text style={[styles.doneBtnText, s.done && styles.doneBtnTextActive]}>✓</Text>
+                                                            <Text style={[styles.doneBtnText, s.done && styles.doneBtnTextActive, isCurrent && !s.done && styles.doneBtnTextCurrent]}>✓</Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
@@ -508,11 +512,12 @@ export default function WorkoutScreen() {
                                     </View>
                                     {ex.sets.map((s, si) => {
                                         const isTimePR = s.done && (parseInt(s.duration) || 0) > (bestTimeMap[ex.name] ?? 0);
+                                        const isCurrent = si === currentIdx;
                                         const lastSet = lastSessionData[ex.name]?.[si];
                                         const lastLabel = lastSet ? `Last: ${lastSet.duration}s` : '—';
                                         return (
                                             <View key={si}>
-                                                <View style={[styles.setRow, s.done && styles.setRowDone]}>
+                                                <View style={[styles.setRow, isCurrent ? styles.setRowCurrent : styles.setRowDim]}>
                                                     <Text style={styles.setNum}>{si + 1}</Text>
                                                     <TextInput
                                                         style={[styles.setInput, { flex: 1 }]}
@@ -524,9 +529,9 @@ export default function WorkoutScreen() {
                                                     <View style={styles.setActions}>
                                                         {isTimePR && <Text style={styles.prBadge}>PR</Text>}
                                                         <TouchableOpacity
-                                                            style={[styles.doneBtn, s.done && styles.doneBtnActive]}
+                                                            style={[styles.doneBtn, s.done && styles.doneBtnActive, isCurrent && !s.done && styles.doneBtnCurrent]}
                                                             onPress={() => markSetDone(ei, si)}>
-                                                            <Text style={[styles.doneBtnText, s.done && styles.doneBtnTextActive]}>✓</Text>
+                                                            <Text style={[styles.doneBtnText, s.done && styles.doneBtnTextActive, isCurrent && !s.done && styles.doneBtnTextCurrent]}>✓</Text>
                                                         </TouchableOpacity>
                                                     </View>
                                                 </View>
@@ -535,7 +540,8 @@ export default function WorkoutScreen() {
                                         );
                                     })}
                                 </>
-                            )}
+                            );
+                            })()}
                         </View>
                     ))}
                 </ScrollView>
@@ -579,6 +585,9 @@ export default function WorkoutScreen() {
                         <TouchableOpacity onPress={() => openBuilder(t)} style={styles.editBtn}>
                             <Text style={styles.editBtnText}>Edit</Text>
                         </TouchableOpacity>
+                        <View style={styles.playBtn}>
+                            <Text style={styles.playBtnText}>▶</Text>
+                        </View>
                     </TouchableOpacity>
                 ))}
                 {templates.length > 0 && (
@@ -592,7 +601,7 @@ export default function WorkoutScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
+        backgroundColor: C.bg,
         paddingTop: 60,
     },
     header: {
@@ -603,37 +612,37 @@ const styles = StyleSheet.create({
         marginBottom: 16,
     },
     title: {
-        color: '#c9a84c',
-        fontSize: 24,
-        fontWeight: 'bold',
+        color: C.text,
+        fontSize: 22,
+        fontFamily: F.serif,
         flex: 1,
         textAlign: 'center',
     },
     backBtn: {
-        color: '#c9a84c',
+        color: C.gold,
         fontSize: 24,
         width: 32,
     },
     newTemplateBtn: {
-        backgroundColor: '#c9a84c',
+        backgroundColor: C.gold,
         paddingHorizontal: 14,
         paddingVertical: 8,
         borderRadius: 8,
     },
     newTemplateBtnText: {
-        color: '#0a0a0a',
+        color: C.bg,
         fontWeight: 'bold',
         fontSize: 14,
     },
     emptyText: {
-        color: '#5a5650',
+        color: C.faint,
         textAlign: 'center',
         marginTop: 60,
         fontSize: 15,
         lineHeight: 24,
     },
     hintText: {
-        color: '#2a2a2a',
+        color: C.faint,
         textAlign: 'center',
         fontSize: 12,
         marginTop: 16,
@@ -641,18 +650,21 @@ const styles = StyleSheet.create({
     templateRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderRadius: 10,
+        borderWidth: 1,
+        borderColor: C.border,
         padding: 16,
         marginBottom: 10,
+        gap: 10,
     },
     templateName: {
-        color: '#e8e0cc',
+        color: C.text,
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: F.serif,
     },
     templateMeta: {
-        color: '#5a5650',
+        color: C.muted,
         fontSize: 13,
         marginTop: 2,
     },
@@ -662,28 +674,45 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
     },
     editBtnText: {
-        color: '#5a5650',
+        color: C.muted,
+        fontSize: 13,
+    },
+    playBtn: {
+        width: 34,
+        height: 34,
+        borderRadius: 17,
+        backgroundColor: C.gold,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    playBtnText: {
+        color: C.bg,
         fontSize: 13,
     },
     templateNameInput: {
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: C.border,
         paddingHorizontal: 16,
         paddingVertical: 12,
         fontSize: 16,
-        color: '#e8e0cc',
+        color: C.text,
         marginBottom: 24,
     },
     sectionLabel: {
-        color: '#c9a84c',
-        fontSize: 12,
+        color: C.muted,
+        fontSize: 11,
         fontWeight: 'bold',
-        letterSpacing: 1.5,
+        textTransform: 'uppercase',
+        letterSpacing: 2,
         marginBottom: 12,
     },
     builderExRow: {
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderRadius: 10,
+        borderWidth: 1,
+        borderColor: C.border,
         padding: 12,
         marginBottom: 10,
     },
@@ -702,27 +731,32 @@ const styles = StyleSheet.create({
         flex: 1,
         paddingVertical: 6,
         borderRadius: 6,
-        backgroundColor: '#17150f',
+        backgroundColor: C.bg,
+        borderWidth: 1,
+        borderColor: C.border,
         alignItems: 'center',
     },
     typeBtnActive: {
-        backgroundColor: '#c9a84c',
+        backgroundColor: C.gold,
+        borderColor: C.gold,
     },
     typeBtnText: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 13,
         fontWeight: 'bold',
     },
     typeBtnTextActive: {
-        color: '#0a0a0a',
+        color: C.bg,
     },
     input: {
-        backgroundColor: '#0a0a0a',
+        backgroundColor: C.bg,
         borderRadius: 6,
+        borderWidth: 1,
+        borderColor: C.border,
         paddingHorizontal: 12,
         paddingVertical: 10,
         fontSize: 15,
-        color: '#e8e0cc',
+        color: C.text,
     },
     removeBtn: {
         width: 32,
@@ -731,7 +765,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
     },
     removeBtnText: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 22,
     },
     builderNumRow: {
@@ -743,43 +777,47 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     numLabel: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 11,
         marginBottom: 4,
     },
     numInput: {
         width: '100%',
-        backgroundColor: '#0a0a0a',
+        backgroundColor: C.bg,
         borderRadius: 6,
+        borderWidth: 1,
+        borderColor: C.border,
         paddingHorizontal: 8,
         paddingVertical: 8,
         fontSize: 15,
-        color: '#e8e0cc',
+        color: C.text,
         textAlign: 'center',
     },
     addExBtn: {
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: C.border,
         paddingVertical: 12,
         alignItems: 'center',
         marginBottom: 20,
     },
     addExBtnText: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 15,
     },
     primaryBtn: {
-        backgroundColor: '#c9a84c',
+        backgroundColor: C.gold,
         borderRadius: 10,
         paddingVertical: 14,
         alignItems: 'center',
         marginBottom: 12,
     },
     primaryBtnDisabled: {
-        backgroundColor: '#2a2a2a',
+        backgroundColor: C.border,
     },
     primaryBtnText: {
-        color: '#0a0a0a',
+        color: C.bg,
         fontWeight: 'bold',
         fontSize: 16,
     },
@@ -787,9 +825,9 @@ const styles = StyleSheet.create({
         marginBottom: 24,
     },
     exerciseName: {
-        color: '#e8e0cc',
+        color: C.text,
         fontSize: 16,
-        fontWeight: 'bold',
+        fontFamily: F.serif,
         marginBottom: 8,
     },
     setHeaderRow: {
@@ -800,7 +838,7 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     setHeaderCell: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 10,
         fontWeight: 'bold',
         letterSpacing: 1,
@@ -808,30 +846,36 @@ const styles = StyleSheet.create({
     setRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#0f0f0f',
+        backgroundColor: C.card,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: C.border,
         paddingHorizontal: 8,
         paddingVertical: 8,
         marginBottom: 8,
         gap: 8,
     },
-    setRowDone: {
-        backgroundColor: '#121008',
+    setRowCurrent: {
+        backgroundColor: C.cardSelected,
+        borderColor: C.gold,
+    },
+    setRowDim: {
+        opacity: 0.5,
     },
     setNum: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 14,
         fontWeight: 'bold',
         width: 28,
         textAlign: 'center',
     },
     setInput: {
-        backgroundColor: '#0a0a0a',
+        backgroundColor: C.bg,
         borderRadius: 6,
         paddingHorizontal: 8,
         paddingVertical: 6,
         fontSize: 15,
-        color: '#e8e0cc',
+        color: C.text,
         textAlign: 'center',
     },
     setActions: {
@@ -845,24 +889,30 @@ const styles = StyleSheet.create({
         width: 32,
         height: 32,
         borderRadius: 16,
-        backgroundColor: '#1a1814',
+        backgroundColor: C.border,
         alignItems: 'center',
         justifyContent: 'center',
     },
     doneBtnActive: {
-        backgroundColor: '#c9a84c',
+        backgroundColor: C.gold,
+    },
+    doneBtnCurrent: {
+        backgroundColor: C.gold,
     },
     doneBtnText: {
-        color: '#2a2a2a',
+        color: C.faint,
         fontSize: 14,
         fontWeight: 'bold',
     },
     doneBtnTextActive: {
-        color: '#0a0a0a',
+        color: C.bg,
+    },
+    doneBtnTextCurrent: {
+        color: C.bg,
     },
     prBadge: {
-        color: '#0a0a0a',
-        backgroundColor: '#c9a84c',
+        color: C.bg,
+        backgroundColor: C.gold,
         fontSize: 9,
         fontWeight: 'bold',
         letterSpacing: 0.5,
@@ -871,7 +921,7 @@ const styles = StyleSheet.create({
         paddingVertical: 2,
     },
     lastSetText: {
-        color: '#5a5650',
+        color: C.faint,
         fontSize: 11,
         marginLeft: 36,
         marginTop: -2,
@@ -882,10 +932,10 @@ const styles = StyleSheet.create({
         bottom: 0,
         left: 0,
         right: 0,
-        backgroundColor: '#0a0a0a',
+        backgroundColor: C.bg,
         paddingHorizontal: 24,
         paddingVertical: 16,
         borderTopWidth: 1,
-        borderTopColor: '#1e1e1e',
+        borderTopColor: C.border,
     },
 });

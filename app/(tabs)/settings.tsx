@@ -2,6 +2,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'rea
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { C, F } from '../../lib/tokens';
 
 function SettingsRow({ label, value, onPress, danger }: {
   label: string;
@@ -142,9 +143,11 @@ export default function SettingsScreen() {
           <SettingsRow label="Report a bug" onPress={() => Alert.alert('Bug report', 'Coming soon.')} />
         </View>
 
-        <SectionHeader title="DANGER ZONE" />
-        <View style={styles.section}>
-          <SettingsRow label="Full Reset" onPress={handleFullReset} danger />
+        <View style={styles.dangerZone}>
+          <SectionHeader title="DANGER ZONE" />
+          <View style={[styles.section, styles.dangerSection]}>
+            <SettingsRow label="Full Reset" onPress={handleFullReset} danger />
+          </View>
         </View>
 
       </ScrollView>
@@ -155,36 +158,39 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: C.bg,
   },
   header: {
     paddingTop: 60,
     paddingBottom: 16,
     paddingHorizontal: 24,
     borderBottomWidth: 1,
-    borderBottomColor: '#1e1e1e',
+    borderBottomColor: C.border,
   },
   headerTitle: {
-    color: '#e8e0cc',
-    fontSize: 24,
-    fontWeight: 'bold',
+    color: C.text,
+    fontSize: 26,
+    fontFamily: F.serif,
   },
   scroll: {
     paddingBottom: 60,
   },
   sectionHeader: {
-    color: '#5a5650',
+    color: C.muted,
     fontSize: 11,
     fontWeight: 'bold',
-    letterSpacing: 1.5,
+    textTransform: 'uppercase',
+    letterSpacing: 2,
     marginTop: 28,
     marginBottom: 4,
     marginHorizontal: 24,
   },
   section: {
-    backgroundColor: '#0f0f0f',
+    backgroundColor: C.card,
     borderRadius: 12,
     marginHorizontal: 16,
+    borderWidth: 1,
+    borderColor: C.border,
     overflow: 'hidden',
   },
   row: {
@@ -194,7 +200,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   rowLabel: {
-    color: '#e8e0cc',
+    color: C.text,
     fontSize: 15,
     flex: 1,
   },
@@ -202,12 +208,21 @@ const styles = StyleSheet.create({
     color: '#e05555',
   },
   rowValue: {
-    color: '#5a5650',
+    color: C.gold,
     fontSize: 14,
     marginRight: 8,
   },
   rowChevron: {
-    color: '#5a5650',
+    color: C.gold,
     fontSize: 20,
+  },
+  dangerZone: {
+    marginTop: 44,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: C.border,
+  },
+  dangerSection: {
+    borderColor: '#3a1414',
   },
 });
