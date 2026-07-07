@@ -248,11 +248,6 @@ export default function RecordsScreen() {
                                             onPress={() => handleTap(record)}>
                                             <View style={styles.rowLeft}>
                                                 <Text style={styles.recordName}>{record.name}</Text>
-                                                {current != null && (
-                                                    <View style={styles.prBadge}>
-                                                        <Text style={styles.prBadgeText}>PR</Text>
-                                                    </View>
-                                                )}
                                             </View>
                                             <View style={styles.valueWrap}>
                                                 <Text style={[
@@ -467,10 +462,10 @@ const styles = StyleSheet.create({
     },
     categoryCard: {
         marginHorizontal: 16,
-        backgroundColor: C.card,
+        backgroundColor: '#16130c',
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: C.border,
+        borderColor: '#2a2620',
         overflow: 'hidden',
     },
     outerRow: {},
@@ -496,30 +491,13 @@ const styles = StyleSheet.create({
         fontSize: 14,
         flex: 1,
     },
-    prBadge: {
-        backgroundColor: C.gold,
-        borderRadius: 5,
-        paddingHorizontal: 6,
-        paddingVertical: 2,
-        shadowColor: C.gold,
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        shadowOffset: { width: 0, height: 0 },
-        elevation: 4,
-    },
-    prBadgeText: {
-        color: C.bg,
-        fontSize: 9,
-        fontWeight: '700',
-        letterSpacing: 0.5,
-    },
     valueWrap: {
         flexDirection: 'column',
         alignItems: 'flex-end',
     },
     recordValue: {
         color: C.gold,
-        fontSize: 22,
+        fontSize: 30,
         fontFamily: F.serif,
         shadowColor: C.gold,
         shadowOpacity: 0.2,

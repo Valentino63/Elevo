@@ -83,6 +83,7 @@ export default function WorkoutScreen() {
     const [builderName, setBuilderName] = useState('');
     const [builderExercises, setBuilderExercises] = useState<BuilderExercise[]>([]);
     const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+    const [expandedExId, setExpandedExId] = useState<string | null>(null);
 
     const [activeTemplate, setActiveTemplate] = useState<Template | null>(null);
     const [activeExercises, setActiveExercises] = useState<ActiveExercise[]>([]);
@@ -357,83 +358,102 @@ export default function WorkoutScreen() {
                         onChangeText={setBuilderName}
                     />
                     <Text style={styles.sectionLabel}>EXERCISES</Text>
-                    {builderExercises.map((ex, i) => {
-                        const summary = ex.type === 'reps'
-                            ? `${ex.sets || 0} × ${ex.reps || 0}${parseFloat(ex.weight) > 0 ? ` · ${ex.weight}kg` : ''}`
-                            : `${ex.sets || 0} × ${ex.duration || 0}s`;
-                        return (
-                        <View key={ex.id} style={styles.builderExRow}>
-                            <View style={styles.builderExNameRow}>
-                                <TextInput
-                                    style={[styles.input, { flex: 1 }]}
-                                    placeholder="Exercise name"
-                                    placeholderTextColor={C.faint}
-                                    value={ex.name}
-                                    onChangeText={v => updateExerciseRow(i, 'name', v)}
-                                />
-                                <TouchableOpacity onPress={() => removeExerciseRow(i)} style={styles.removeBtn}>
-                                    <Text style={styles.removeBtnText}>×</Text>
-                                </TouchableOpacity>
-                            </View>
-                            {ex.name.trim().length > 0 && (
-                                <Text style={styles.exSummary}>{summary}</Text>
-                            )}
-                            <View style={styles.typeToggleRow}>
-                                {(['reps', 'time'] as ExerciseType[]).map(t => (
+                    {(() => {
+                        const expandedExists = builderExercises.some(e => e.id === expandedExId);
+                        return builderExercises.map((ex, i) => {
+                            const isExpanded = expandedExists ? expandedExId === ex.id : i === builderExercises.length - 1;
+                            const summary = ex.type === 'reps'
+                                ? `${ex.sets || 0} × ${ex.reps || 0}${parseFloat(ex.weight) > 0 ? ` · ${ex.weight}kg` : ''}`
+                                : `${ex.sets || 0} × ${ex.duration || 0}s`;
+
+                            if (!isExpanded) {
+                                return (
                                     <TouchableOpacity
-                                        key={t}
-                                        style={[styles.typeBtn, ex.type === t && styles.typeBtnActive]}
-                                        onPress={() => setExerciseType(i, t)}>
-                                        <Text style={[styles.typeBtnText, ex.type === t && styles.typeBtnTextActive]}>
-                                            {t === 'reps' ? 'Reps' : 'Time'}
+                                        key={ex.id}
+                                        style={styles.collapsedExRow}
+                                        onPress={() => setExpandedExId(ex.id)}>
+                                        <Text style={styles.collapsedExName} numberOfLines={1}>
+                                            {ex.name.trim() || 'Unnamed exercise'}
                                         </Text>
+                                        <Text style={styles.collapsedExSummary}>{summary}</Text>
                                     </TouchableOpacity>
-                                ))}
-                            </View>
-                            {ex.type === 'reps' ? (
-                                <View style={styles.builderNumRow}>
-                                    {(['sets', 'reps', 'weight'] as const).map(field => (
-                                        <View key={field} style={styles.numField}>
-                                            <Text style={styles.numLabel}>
-                                                {field === 'weight' ? 'kg' : field.charAt(0).toUpperCase() + field.slice(1)}
-                                            </Text>
-                                            <TextInput
-                                                style={styles.numInput}
-                                                value={ex[field]}
-                                                onChangeText={v => updateExerciseRow(i, field, v)}
-                                                keyboardType={field === 'weight' ? 'numeric' : 'number-pad'}
-                                            />
+                                );
+                            }
+
+                            return (
+                                <View key={ex.id} style={styles.builderExRow}>
+                                    <View style={styles.builderExTopRow}>
+                                        <TextInput
+                                            style={[styles.input, styles.builderExNameInput]}
+                                            placeholder="Exercise name"
+                                            placeholderTextColor={C.faint}
+                                            value={ex.name}
+                                            onChangeText={v => updateExerciseRow(i, 'name', v)}
+                                        />
+                                        <View style={styles.typeToggleRow}>
+                                            {(['reps', 'time'] as ExerciseType[]).map(t => (
+                                                <TouchableOpacity
+                                                    key={t}
+                                                    style={[styles.typeBtn, ex.type === t && styles.typeBtnActive]}
+                                                    onPress={() => setExerciseType(i, t)}>
+                                                    <Text style={[styles.typeBtnText, ex.type === t && styles.typeBtnTextActive]}>
+                                                        {t === 'reps' ? 'Reps' : 'Time'}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            ))}
                                         </View>
-                                    ))}
-                                </View>
-                            ) : (
-                                <View style={styles.builderNumRow}>
-                                    <View style={styles.numField}>
-                                        <Text style={styles.numLabel}>Sets</Text>
-                                        <TextInput
-                                            style={styles.numInput}
-                                            value={ex.sets}
-                                            onChangeText={v => updateExerciseRow(i, 'sets', v)}
-                                            keyboardType="number-pad"
-                                        />
+                                        <TouchableOpacity onPress={() => removeExerciseRow(i)} style={styles.removeBtn}>
+                                            <Text style={styles.removeBtnText}>×</Text>
+                                        </TouchableOpacity>
                                     </View>
-                                    <View style={[styles.numField, { flex: 2 }]}>
-                                        <Text style={styles.numLabel}>Duration (sec)</Text>
-                                        <TextInput
-                                            style={styles.numInput}
-                                            value={ex.duration}
-                                            onChangeText={v => updateExerciseRow(i, 'duration', v)}
-                                            keyboardType="number-pad"
-                                        />
-                                    </View>
+                                    {ex.type === 'reps' ? (
+                                        <View style={styles.builderNumRow}>
+                                            {(['sets', 'reps', 'weight'] as const).map(field => (
+                                                <View key={field} style={styles.numField}>
+                                                    <Text style={styles.numLabel}>
+                                                        {field === 'weight' ? 'kg' : field.charAt(0).toUpperCase() + field.slice(1)}
+                                                    </Text>
+                                                    <TextInput
+                                                        style={styles.numInput}
+                                                        value={ex[field]}
+                                                        onChangeText={v => updateExerciseRow(i, field, v)}
+                                                        keyboardType={field === 'weight' ? 'numeric' : 'number-pad'}
+                                                    />
+                                                </View>
+                                            ))}
+                                        </View>
+                                    ) : (
+                                        <View style={styles.builderNumRow}>
+                                            <View style={styles.numField}>
+                                                <Text style={styles.numLabel}>Sets</Text>
+                                                <TextInput
+                                                    style={styles.numInput}
+                                                    value={ex.sets}
+                                                    onChangeText={v => updateExerciseRow(i, 'sets', v)}
+                                                    keyboardType="number-pad"
+                                                />
+                                            </View>
+                                            <View style={[styles.numField, { flex: 2 }]}>
+                                                <Text style={styles.numLabel}>Duration (sec)</Text>
+                                                <TextInput
+                                                    style={styles.numInput}
+                                                    value={ex.duration}
+                                                    onChangeText={v => updateExerciseRow(i, 'duration', v)}
+                                                    keyboardType="number-pad"
+                                                />
+                                            </View>
+                                        </View>
+                                    )}
                                 </View>
-                            )}
-                        </View>
-                        );
-                    })}
+                            );
+                        });
+                    })()}
                     <TouchableOpacity
                         style={styles.addExBtn}
-                        onPress={() => setBuilderExercises(prev => [...prev, newExerciseRow()])}>
+                        onPress={() => {
+                            setBuilderExercises(prev => [...prev, newExerciseRow()]);
+                            setExpandedExId(null);
+                        }}>
                         <Text style={styles.addExBtnText}>+ Add Exercise</Text>
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -779,32 +799,52 @@ const styles = StyleSheet.create({
         marginBottom: 12,
     },
     builderExRow: {
-        backgroundColor: C.card,
+        backgroundColor: '#16130c',
         borderRadius: 10,
         borderWidth: 1,
-        borderColor: C.border,
+        borderColor: '#2a2620',
         padding: 12,
         marginBottom: 10,
     },
-    builderExNameRow: {
+    builderExTopRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
-        marginBottom: 8,
+        marginBottom: 12,
     },
-    exSummary: {
+    builderExNameInput: {
+        flex: 1,
+    },
+    collapsedExRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#16130c',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#2a2620',
+        paddingVertical: 12,
+        paddingHorizontal: 14,
+        marginBottom: 10,
+        gap: 10,
+    },
+    collapsedExName: {
+        color: C.text,
+        fontSize: 14,
+        fontWeight: 'bold',
+        flex: 1,
+    },
+    collapsedExSummary: {
         color: C.muted,
         fontSize: 12,
-        marginBottom: 10,
     },
     typeToggleRow: {
         flexDirection: 'row',
-        gap: 8,
-        marginBottom: 10,
+        gap: 6,
     },
     typeBtn: {
-        flex: 1,
         paddingVertical: 6,
+        paddingHorizontal: 10,
         borderRadius: 6,
         backgroundColor: C.bg,
         borderWidth: 1,
@@ -868,7 +908,7 @@ const styles = StyleSheet.create({
         backgroundColor: C.bg,
         borderRadius: 6,
         borderWidth: 1,
-        borderColor: C.border,
+        borderColor: '#2a2620',
         paddingHorizontal: 8,
         paddingVertical: 8,
         fontSize: 15,
