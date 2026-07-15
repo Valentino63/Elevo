@@ -792,7 +792,7 @@ export default function HomeScreen() {
           style={styles.modalOverlay}
           activeOpacity={1}
           onPress={() => setExplanationModal(null)}>
-          <TouchableOpacity activeOpacity={1} onPress={() => {}} style={styles.modalCard}>
+          <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{explanationModal}</Text>
             <View style={styles.modalDivider} />
             <ScrollView showsVerticalScrollIndicator={false} style={styles.modalScroll}>
@@ -820,7 +820,7 @@ export default function HomeScreen() {
             <TouchableOpacity onPress={() => setExplanationModal(null)} style={styles.modalClose}>
               <Text style={styles.modalCloseText}>Got it</Text>
             </TouchableOpacity>
-          </TouchableOpacity>
+          </View>
         </TouchableOpacity>
       </Modal>
 
