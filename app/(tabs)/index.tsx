@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Modal, Animated, Easing } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View, ScrollView, Modal, Animated, Easing, Pressable } from 'react-native';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -788,10 +788,8 @@ export default function HomeScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setExplanationModal(null)}>
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setExplanationModal(null)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setExplanationModal(null)} />
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>{explanationModal}</Text>
             <View style={styles.modalDivider} />
@@ -821,7 +819,7 @@ export default function HomeScreen() {
               <Text style={styles.modalCloseText}>Got it</Text>
             </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Modal>
 
       {/* Graduation modal */}
