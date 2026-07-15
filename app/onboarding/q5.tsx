@@ -22,7 +22,7 @@ const PRIORITY_MAP: Record<string, string[]> = {
     'My mind and knowledge': ['Scholar', 'Monk'],
     'My business and money': ['Entrepreneur', 'Creator'],
     'My relationships and social life': ['Social Guy', 'Family Man'],
-    'All of the above': [],
+    'All of the above': ['Jack of All Trades'],
 };
 
 const SUB_ARCHETYPES: Record<string, string[]> = {

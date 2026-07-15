@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Alert, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useState, useCallback } from 'react';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -134,6 +134,10 @@ export default function SettingsScreen() {
         <SectionHeader title="APP" />
         <View style={styles.section}>
           <SettingsRow label="Version" value="0.1.0" />
+          <SettingsRow
+            label="Privacy Policy"
+            onPress={() => Linking.openURL('https://valentino63.github.io/Elevo/')}
+          />
         </View>
 
         <SectionHeader title="SUPPORT" />
